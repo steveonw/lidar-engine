@@ -1,0 +1,7 @@
+diag_index,expected_count,present_count,missing_count,missing_materials,passed
+1,9,9,0,,True
+2,9,9,0,,True
+3,9,8,1,glass,False
+4,9,9,0,,True
+5,9,8,1,glass,False
+6,9,9,0,,True

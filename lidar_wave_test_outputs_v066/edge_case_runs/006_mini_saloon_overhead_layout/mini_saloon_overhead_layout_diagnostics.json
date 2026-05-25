@@ -1,0 +1,43 @@
+{
+  "scene": "mini_saloon",
+  "preset": "overhead_layout",
+  "description": "Clean top-down map for layout, spacing, navigation, and scene repair.",
+  "width": 300,
+  "height": 300,
+  "lens": "orthographic",
+  "camera_position": [
+    0.0,
+    21.2,
+    0.0
+  ],
+  "camera_target": [
+    0.0,
+    -0.1,
+    0.0
+  ],
+  "sampling_mode": "grid",
+  "rays_per_pixel": 1,
+  "stacked_bursts": 1,
+  "n_samples_per_burst": 90000,
+  "wave": false,
+  "L_ref": 21.2,
+  "carrier_mode": null,
+  "edge_anti_min": null,
+  "adaptive_edge_percentile": null,
+  "classification_style": "default",
+  "classifier_kwargs": {},
+  "auto_frame": {
+    "enabled": false
+  },
+  "depth_stats": {
+    "coverage": 0.6364,
+    "hit_rays": 57276,
+    "total_rays": 90000,
+    "depth_p05": 17.999999999999996,
+    "depth_p50": 21.2,
+    "depth_p95": 21.2,
+    "depth_span_p05_p95": 3.200000000000003
+  },
+  "classification_counts": null,
+  "runtime_seconds": 1.226
+}

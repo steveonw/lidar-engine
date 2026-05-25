@@ -1,0 +1,9 @@
+piece_type,pixel_count,valid_pixel_count,ignored_pixel_count,expected_label,expected_label_frac,top_label,top_label_frac,report_suffix,metal_or_glass_frac,wood_material_frac,stone_hard_frac,soft_material_frac,foliage_frac,hard_smooth_frac,solid_surface_frac,geom_edge_frac,uncertain_frac,sky_frac
+bar_counter,493,374,119,wood_material,0.0,solid_surface,0.7379679144385026,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.7379679144385026,0.0,0.12566844919786097,0.0
+bottle,87,71,16,,,solid_surface,0.8028169014084507,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.8028169014084507,0.0,0.1267605633802817,0.0
+chair,1349,1345,4,wood_material,0.0,solid_surface,0.9420074349442379,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.9420074349442379,0.0,0.01858736059479554,0.0
+chair_back,1397,1383,14,,,solid_surface,0.9754157628344179,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.9754157628344179,0.0,0.006507592190889371,0.0
+shelf,229,172,57,wood_material,0.0,uncertain,0.4941860465116279,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.37209302325581395,0.0,0.4941860465116279,0.0
+table_top,78,78,0,wood_material,0.0,solid_surface,0.4358974358974359,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.4358974358974359,0.0,0.1282051282051282,0.0
+wood_floor,12948,12946,2,wood_material,0.0,solid_surface,0.9857871157114166,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.9857871157114166,0.0,0.0016993665997219218,0.0
+wood_wall,23699,21492,2207,wood_material,0.0,solid_surface,0.9977666108319375,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.9977666108319375,0.0,0.001209752466033873,0.0

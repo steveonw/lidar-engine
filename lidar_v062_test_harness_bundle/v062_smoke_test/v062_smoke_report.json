@@ -1,0 +1,28 @@
+{
+  "zero_ray_depths_shape": [
+    0
+  ],
+  "zero_ray_pixels_shape": [
+    0,
+    2
+  ],
+  "zero_ray_coverage": 0.0,
+  "zero_ray_sky_pixels": 3072,
+  "zero_ray_hit_labels": 0,
+  "material_smoke_counts": {
+    "partial_occluder": 201,
+    "geom_edge": 1987,
+    "foliage": 19,
+    "metal_or_glass": 0,
+    "stone_hard": 85,
+    "soft_material": 55,
+    "wood_material": 34,
+    "hard_smooth": 0,
+    "solid_surface": 27794,
+    "optical_only": 1687,
+    "acoustic_only": 14,
+    "uncertain": 2121,
+    "sky": 42803
+  },
+  "material_smoke_coverage": 0.44031901041666666
+}

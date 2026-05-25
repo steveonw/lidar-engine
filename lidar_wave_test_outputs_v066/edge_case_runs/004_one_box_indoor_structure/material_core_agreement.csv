@@ -1,0 +1,2 @@
+piece_type,pixel_count,valid_pixel_count,ignored_pixel_count,expected_label,expected_label_frac,top_label,top_label_frac,report_suffix,metal_or_glass_frac,wood_material_frac,stone_hard_frac,soft_material_frac,foliage_frac,hard_smooth_frac,solid_surface_frac,geom_edge_frac,uncertain_frac,sky_frac
+box,7618,7618,0,,,solid_surface,1.0,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0

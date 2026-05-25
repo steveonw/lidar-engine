@@ -1,0 +1,2 @@
+hit_labeled_pixels,geom_edge_pixels,geom_edge_frac,edge_components,edge_components_ge_min_size,largest_edge_component_px,partial_occluder_frac,optical_only_frac,acoustic_only_frac,solid_surface_frac,hard_smooth_frac,uncertain_frac
+29692,5937,0.19995284925232387,583,97,563,0.00020207463289775024,6.735821096591675e-05,0.0,0.0002357537383807086,0.7981274417351475,6.735821096591675e-05

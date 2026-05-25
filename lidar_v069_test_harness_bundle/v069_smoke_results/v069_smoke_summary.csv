@@ -1,0 +1,3 @@
+scene,preset,coverage,depth_span,geom_edge_frac,edge_threshold_used,edge_confidence_max,total_runtime_seconds,autoframe_runtime_seconds,render_runtime_seconds,report_runtime_seconds
+cabin_demo,compact_diagnostic,0.5024369606667014,13.3019745435409,0.08,0.6565871194894095,1.0,20.792,14.433,4.567,1.145
+material_targets,material_scan,0.41329809737410966,9.187931662828559,0.05964149918522542,0.8260645603573095,1.0,11.191,5.275,4.179,1.173
