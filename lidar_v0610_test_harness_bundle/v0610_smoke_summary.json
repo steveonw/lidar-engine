@@ -1,0 +1,48 @@
+[
+  {
+    "name": "geom_fused",
+    "path": "/mnt/data/v0610_smoke_results/demo_geom_fused_compact_diagnostic_contact_sheet.png",
+    "edge_score_raw_p95": 1.0,
+    "edge_score_geom_p95": 0.44447724421147616,
+    "edge_threshold_used": 0.35,
+    "counts": {
+      "partial_occluder": 42,
+      "geom_edge": 1087,
+      "foliage": 324,
+      "metal_or_glass": 0,
+      "stone_hard": 0,
+      "soft_material": 0,
+      "wood_material": 0,
+      "hard_smooth": 403,
+      "solid_surface": 14881,
+      "optical_only": 389,
+      "acoustic_only": 11,
+      "uncertain": 1707,
+      "sky": 19556
+    },
+    "runtime": 11.068
+  },
+  {
+    "name": "raw_anti",
+    "path": "/mnt/data/v0610_smoke_results/demo_raw_anti_compact_diagnostic_contact_sheet.png",
+    "edge_score_raw_p95": 1.0,
+    "edge_score_geom_p95": 1.0,
+    "edge_threshold_used": 0.95,
+    "counts": {
+      "partial_occluder": 42,
+      "geom_edge": 5879,
+      "foliage": 229,
+      "metal_or_glass": 0,
+      "stone_hard": 0,
+      "soft_material": 0,
+      "wood_material": 0,
+      "hard_smooth": 309,
+      "solid_surface": 10260,
+      "optical_only": 898,
+      "acoustic_only": 9,
+      "uncertain": 1218,
+      "sky": 19556
+    },
+    "runtime": 11.031
+  }
+]

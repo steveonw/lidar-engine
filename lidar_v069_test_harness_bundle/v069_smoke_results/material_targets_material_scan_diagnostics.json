@@ -1,0 +1,245 @@
+{
+  "scene": "material_targets",
+  "preset": "material_scan",
+  "description": "Material board / object inspection. Emphasizes acoustic, ultrasonic, softness, and polarization cues.",
+  "width": 180,
+  "height": 120,
+  "lens": "pinhole",
+  "camera_position": [
+    -13.65,
+    1.2999999999999998,
+    0.0
+  ],
+  "camera_target": [
+    0.0,
+    0.95,
+    0.0
+  ],
+  "sampling_mode": "halton",
+  "rays_per_pixel": 8,
+  "stacked_bursts": 1,
+  "n_samples_per_burst": 172800,
+  "wave": true,
+  "L_ref": 5.102222054530753,
+  "edge_threshold_used": 0.8260645603573095,
+  "edge_score_p90": 0.7816771236274775,
+  "edge_score_p95": 0.8451380476510951,
+  "edge_score_p99": 0.979566954162795,
+  "edge_confidence_max": 1.0,
+  "carrier_mode": "ensemble",
+  "edge_anti_min": 0.3,
+  "edge_anti_max": 0.95,
+  "adaptive_edge_percentile": 94.0,
+  "classification_style": "material_focus",
+  "classifier_kwargs": {
+    "edge_anti_min": 0.3,
+    "edge_anti_max": 0.95,
+    "adaptive_edge_percentile": 94.0,
+    "material_labels": true,
+    "attenuation_per_meter": 0.0
+  },
+  "warnings": [],
+  "auto_frame": {
+    "enabled": true,
+    "selected": {
+      "score": 1.2220750045273554,
+      "coverage": 0.41456582633053224,
+      "depth_span_p05_p95": 9.271987907953335,
+      "unique_pieces": 14,
+      "index": 100,
+      "position": [
+        -13.65,
+        1.2999999999999998,
+        0.0
+      ],
+      "target": [
+        0.0,
+        0.95,
+        0.0
+      ],
+      "fov_deg": 50.0
+    },
+    "passed": true,
+    "min_coverage": 0.35,
+    "min_depth_span": 3.0,
+    "pilot_rays": 4000,
+    "n_candidates": 145,
+    "top_trials": [
+      {
+        "score": 1.2220750045273554,
+        "coverage": 0.41456582633053224,
+        "depth_span_p05_p95": 9.271987907953335,
+        "unique_pieces": 14,
+        "index": 100,
+        "position": [
+          -13.65,
+          1.2999999999999998,
+          0.0
+        ],
+        "target": [
+          0.0,
+          0.95,
+          0.0
+        ],
+        "fov_deg": 50.0
+      },
+      {
+        "score": 1.2135354986424207,
+        "coverage": 0.4117647058823529,
+        "depth_span_p05_p95": 9.039705752762774,
+        "unique_pieces": 12,
+        "index": 82,
+        "position": [
+          13.65,
+          1.2999999999999998,
+          0.0
+        ],
+        "target": [
+          0.0,
+          0.95,
+          0.0
+        ],
+        "fov_deg": 50.0
+      },
+      {
+        "score": 1.2095240340989066,
+        "coverage": 0.408454290807232,
+        "depth_span_p05_p95": 9.043885171908894,
+        "unique_pieces": 13,
+        "index": 28,
+        "position": [
+          -13.65,
+          1.2999999999999998,
+          0.0
+        ],
+        "target": [
+          0.0,
+          0.6499999999999999,
+          0.0
+        ],
+        "fov_deg": 50.0
+      },
+      {
+        "score": 1.2079257147368243,
+        "coverage": 0.4097275273745862,
+        "depth_span_p05_p95": 8.935381941775029,
+        "unique_pieces": 11,
+        "index": 10,
+        "position": [
+          13.65,
+          1.2999999999999998,
+          0.0
+        ],
+        "target": [
+          0.0,
+          0.6499999999999999,
+          0.0
+        ],
+        "fov_deg": 50.0
+      },
+      {
+        "score": 1.0105452116185203,
+        "coverage": 0.29717341482047366,
+        "depth_span_p05_p95": 8.840345209643825,
+        "unique_pieces": 12,
+        "index": 101,
+        "position": [
+          -13.65,
+          1.2999999999999998,
+          0.0
+        ],
+        "target": [
+          0.0,
+          0.95,
+          0.0
+        ],
+        "fov_deg": 62.0
+      },
+      {
+        "score": 1.0089480898007508,
+        "coverage": 0.2999745352686529,
+        "depth_span_p05_p95": 12.353437929228678,
+        "unique_pieces": 9,
+        "index": 64,
+        "position": [
+          -9.652007563196372,
+          1.2999999999999998,
+          -9.652007563196372
+        ],
+        "target": [
+          0.0,
+          0.6499999999999999,
+          0.0
+        ],
+        "fov_deg": 50.0
+      },
+      {
+        "score": 1.0071908753465226,
+        "coverage": 0.29640947288006114,
+        "depth_span_p05_p95": 8.775635578766074,
+        "unique_pieces": 11,
+        "index": 83,
+        "position": [
+          13.65,
+          1.2999999999999998,
+          0.0
+        ],
+        "target": [
+          0.0,
+          0.95,
+          0.0
+        ],
+        "fov_deg": 62.0
+      },
+      {
+        "score": 1.006454210755301,
+        "coverage": 0.2928444104914693,
+        "depth_span_p05_p95": 12.46208943212297,
+        "unique_pieces": 14,
+        "index": 109,
+        "position": [
+          9.652007563196372,
+          1.2999999999999998,
+          9.652007563196372
+        ],
+        "target": [
+          0.0,
+          0.95,
+          0.0
+        ],
+        "fov_deg": 50.0
+      }
+    ]
+  },
+  "depth_stats": {
+    "coverage": 0.41329809737410966,
+    "hit_rays": 71315,
+    "total_rays": 172551,
+    "depth_p05": 3.4356061589642137,
+    "depth_p50": 5.102222054530753,
+    "depth_p95": 12.623537821792773,
+    "depth_span_p05_p95": 9.187931662828559
+  },
+  "classification_counts": {
+    "partial_occluder": 37,
+    "geom_edge": 549,
+    "foliage": 0,
+    "metal_or_glass": 110,
+    "stone_hard": 13,
+    "soft_material": 6,
+    "wood_material": 72,
+    "hard_smooth": 1279,
+    "solid_surface": 5087,
+    "optical_only": 561,
+    "acoustic_only": 0,
+    "uncertain": 1491,
+    "sky": 12395
+  },
+  "autoframe_runtime_seconds": 5.275,
+  "render_runtime_seconds": 4.179,
+  "report_runtime_seconds": 1.173,
+  "pre_save_runtime_seconds": 10.631,
+  "save_runtime_seconds": 0.56,
+  "total_runtime_seconds": 11.191,
+  "runtime_seconds": 11.191
+}

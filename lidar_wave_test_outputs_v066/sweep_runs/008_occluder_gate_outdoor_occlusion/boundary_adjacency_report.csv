@@ -1,0 +1,11 @@
+label_a,label_b,edge_pixel_adjacency_count,fraction_of_adjacencies
+solid_surface,solid_surface,4666,0.9287420382165605
+optical_only,solid_surface,114,0.02269108280254777
+optical_only,optical_only,92,0.018312101910828025
+foliage,foliage,55,0.010947452229299362
+partial_occluder,partial_occluder,44,0.00875796178343949
+foliage,partial_occluder,18,0.0035828025477707007
+partial_occluder,solid_surface,17,0.0033837579617834396
+optical_only,partial_occluder,13,0.0025875796178343948
+acoustic_only,solid_surface,4,0.0007961783439490446
+acoustic_only,optical_only,1,0.00019904458598726116

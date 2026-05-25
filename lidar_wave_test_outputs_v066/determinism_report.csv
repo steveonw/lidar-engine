@@ -1,0 +1,4 @@
+case_index,scene,preset,mode,repeats,unique_contact_hashes,all_hashes_equal,coverage_std,score_std,light_anti_p95_std,errors
+1,material_targets,material_scan,same_seed,3,1,True,0.0,0.0,1.3597399555105182e-16,0
+2,material_targets,material_scan,different_seed,4,4,False,0.0001176528867404085,0.005309780582659051,0.004784188657444537,0
+3,mini_saloon,indoor_structure,same_seed,3,1,True,0.0,0.0,0.0,0

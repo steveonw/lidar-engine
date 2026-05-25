@@ -1,0 +1,7 @@
+piece_type,pixel_count,valid_pixel_count,ignored_pixel_count,expected_label,expected_label_frac,top_label,top_label_frac,report_suffix,metal_or_glass_frac,wood_material_frac,stone_hard_frac,soft_material_frac,foliage_frac,hard_smooth_frac,solid_surface_frac,geom_edge_frac,uncertain_frac,sky_frac
+back_wall,18429,18339,90,,,solid_surface,0.9848410491302688,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.9848410491302688,0.0,0.003108130214297399,0.0
+canopy,1919,1719,200,foliage,0.028504944735311226,partial_occluder,0.8929610238510762,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.028504944735311226,0.0,0.015706806282722512,0.0,0.038394415357766144,0.0
+fence,375,370,5,,,uncertain,0.6081081081081081,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.2,0.0,0.6081081081081081,0.0
+ground,61817,56535,5282,,,solid_surface,0.9347306977978244,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.9347306977978244,0.0,0.04225700893251968,0.0
+stone,1031,204,827,stone_hard,0.0,solid_surface,0.4362745098039216,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.4362745098039216,0.0,0.3088235294117647,0.0
+trunk,371,129,242,,,solid_surface,0.5581395348837209,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.5581395348837209,0.0,0.12403100775193798,0.0

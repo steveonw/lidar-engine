@@ -1,0 +1,11 @@
+piece_type,pixel_count,valid_pixel_count,ignored_pixel_count,expected_label,expected_label_frac,top_label,top_label_frac,report_suffix,metal_or_glass_frac,wood_material_frac,stone_hard_frac,soft_material_frac,foliage_frac,hard_smooth_frac,solid_surface_frac,geom_edge_frac,uncertain_frac,sky_frac
+backdrop,4457,4441,16,,,hard_smooth,0.9781580725061922,core_ignore_geom_edge,0.0015762215717180816,0.0009006980409817609,0.003827966674172484,0.0,0.0,0.9781580725061922,0.0029272686331907227,0.0,0.01103355100202657,0.0
+carpet,110,25,85,soft_material,0.08,partial_occluder,0.84,core_ignore_geom_edge,0.0,0.0,0.0,0.08,0.0,0.0,0.0,0.0,0.04,0.0
+cloth,85,44,41,soft_material,0.045454545454545456,partial_occluder,0.8181818181818182,core_ignore_geom_edge,0.0,0.022727272727272728,0.0,0.045454545454545456,0.0,0.045454545454545456,0.022727272727272728,0.0,0.0,0.0
+foliage,31,17,14,foliage,0.058823529411764705,partial_occluder,0.8235294117647058,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.058823529411764705,0.0,0.058823529411764705,0.0,0.058823529411764705,0.0
+glass,181,122,59,metal_or_glass,0.8032786885245902,metal_or_glass,0.8032786885245902,core_ignore_geom_edge,0.8032786885245902,0.07377049180327869,0.0,0.0,0.0,0.06557377049180328,0.00819672131147541,0.0,0.00819672131147541,0.0
+ground,23970,23059,911,,,solid_surface,0.8637408387180711,core_ignore_geom_edge,0.0,0.007068823452881738,0.0,0.0,0.0,8.673403009670844e-05,0.8637408387180711,0.0,0.07376729259725053,0.0
+metal,279,63,216,metal_or_glass,1.0,metal_or_glass,1.0,core_ignore_geom_edge,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+plastic,86,0,86,,,sky,1.0,core_ignore_geom_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0
+stone,65,40,25,stone_hard,0.175,wood_material,0.825,core_ignore_geom_edge,0.0,0.825,0.175,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+wood,380,55,325,wood_material,0.8363636363636363,wood_material,0.8363636363636363,core_ignore_geom_edge,0.0,0.8363636363636363,0.0,0.0,0.0,0.0,0.16363636363636364,0.0,0.0,0.0

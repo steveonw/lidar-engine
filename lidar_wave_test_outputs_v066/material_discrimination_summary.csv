@@ -1,0 +1,6 @@
+channel,n_materials,min,max,spread,materials_sorted
+acoustic_intensity_mean,10,0.17400594230912544,0.8573945669769754,0.6833886246678499,foliage=0.174; carpet=0.261; cloth=0.332; plastic=0.517; ground=0.599; wood=0.694; backdrop=0.798; glass=0.815; metal=0.818; stone=0.857
+ultrasonic_intensity_mean,10,0.09572943911913957,0.9163011613467552,0.8205717222276157,carpet=0.096; foliage=0.112; cloth=0.149; plastic=0.468; ground=0.499; wood=0.543; metal=0.843; glass=0.874; stone=0.887; backdrop=0.916
+acoustic_texture_mean,10,0.4655354717857998,0.7462890443793727,0.2807535725935729,backdrop=0.466; glass=0.484; stone=0.492; metal=0.494; plastic=0.527; ground=0.545; wood=0.561; foliage=0.673; cloth=0.721; carpet=0.746
+polarization_mean,10,0.11596421845825709,0.7475004709592837,0.6315362525010266,foliage=0.116; carpet=0.127; cloth=0.186; ground=0.250; wood=0.286; plastic=0.331; stone=0.437; backdrop=0.647; glass=0.727; metal=0.748
+depth_variance_mean,10,0.02142386974863118,5.048735348725472,5.027311478976841,ground=0.021; backdrop=0.085; cloth=0.169; carpet=0.668; plastic=1.278; wood=1.505; stone=1.771; foliage=3.526; metal=3.595; glass=5.049

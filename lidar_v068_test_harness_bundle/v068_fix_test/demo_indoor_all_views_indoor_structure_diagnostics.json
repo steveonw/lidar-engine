@@ -1,0 +1,70 @@
+{
+  "scene": "demo_indoor_all_views",
+  "preset": "indoor_structure",
+  "description": "Eye-level interior sensing. Emphasizes light_anti + sound_anti for dense furniture/room structure.",
+  "width": 320,
+  "height": 220,
+  "lens": "pinhole",
+  "camera_position": [
+    0.0,
+    1.5399999999999998,
+    28.799999999999997
+  ],
+  "camera_target": [
+    0.0,
+    1.3707800000000003,
+    0.0
+  ],
+  "sampling_mode": "halton",
+  "rays_per_pixel": 4,
+  "stacked_bursts": 2,
+  "n_samples_per_burst": 281600,
+  "wave": true,
+  "L_ref": 25.06940053878612,
+  "edge_threshold_used": 0.824229426685413,
+  "edge_score_p90": 0.7267660425670964,
+  "edge_score_p95": 0.8572502341037056,
+  "edge_score_p99": 1.0,
+  "edge_confidence_max": 1.0,
+  "carrier_mode": "ensemble",
+  "edge_anti_min": 0.38,
+  "edge_anti_max": 0.95,
+  "adaptive_edge_percentile": 94.0,
+  "classification_style": "indoor_sparse",
+  "classifier_kwargs": {
+    "edge_anti_min": 0.38,
+    "edge_anti_max": 0.95,
+    "adaptive_edge_percentile": 94.0,
+    "material_labels": false,
+    "attenuation_per_meter": 0.0
+  },
+  "warnings": [],
+  "auto_frame": {
+    "enabled": false
+  },
+  "depth_stats": {
+    "coverage": 0.029918323863636364,
+    "hit_rays": 8425,
+    "total_rays": 281600,
+    "depth_p05": 17.464293780173143,
+    "depth_p50": 25.103703824098222,
+    "depth_p95": 33.7937891060137,
+    "depth_span_p05_p95": 16.329495325840554
+  },
+  "classification_counts": {
+    "partial_occluder": 88,
+    "geom_edge": 147,
+    "foliage": 131,
+    "metal_or_glass": 0,
+    "stone_hard": 0,
+    "soft_material": 0,
+    "wood_material": 0,
+    "hard_smooth": 0,
+    "solid_surface": 941,
+    "optical_only": 334,
+    "acoustic_only": 0,
+    "uncertain": 873,
+    "sky": 67886
+  },
+  "runtime_seconds": 3.986
+}
