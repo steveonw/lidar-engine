@@ -215,7 +215,75 @@ python v070_release_quality_480.py \
   --outdir v070_release_quality_480_outputs
 ```
 
-## Known limitations
+## Tier 2 Browser Demo
+
+`lidar_tier2_demo.html` is a self-contained interactive browser demo that illustrates the core ideas of the engine in a playable, zero-install format. Open it by double-clicking the file — no Python, no npm, no build step required. It loads PlayCanvas from a CDN for 3D rendering and everything else is plain JavaScript.
+
+The demo is not a port of the full engine. It is a lightweight Tier 2 showcase that gives people an immediate mental model of what the engine is doing before they look at the Python code.
+
+### What the browser demo does
+
+The demo runs a custom analytic JavaScript raycaster against a simple indoor 3D scene built from boxes and spheres. It fires rays from the current camera position, intersects them against scene geometry, and builds a point cloud from the hits. Each scan takes 20–35 ms in the browser.
+
+**7 render modes:**
+
+| Mode | What it shows |
+|---|---|
+| Normal | Dark 3D scene, no scan overlay |
+| Depth | Point cloud colored near→far (white→dark blue) |
+| Latest Scan | Newest scan colored by material label |
+| Memory Cloud | Last 4 scans overlaid, newest brightest |
+| Hybrid | 3D scene + accumulated memory cloud together |
+| Beam Evidence | Front returns red/orange, back returns cyan (gate/split), edges yellow-orange, solid green |
+| Mat/Edge Debug | Material colors, brightened at depth/material discontinuities |
+
+**5 lens modes:** Pinhole (60°), Wide (90°), Telephoto (30°), Orthographic, Fisheye
+
+**9 camera grid presets:** A1–C3, all looking at scene center from different angles and heights
+
+**Scan memory:** Keeps the last 4 scans. Memory Cloud shows them all with age-based fading, matching the Python engine's stacked-burst averaging concept.
+
+**Mini contact sheet:** After each scan a 4-panel pixel thumbnail appears in the HUD — Depth / Beam / Mat / Edge — directly mirroring the Python engine's diagnostic contact sheet format.
+
+**Live stats panel** uses the same structure as the Python engine's `depth_stats` output:
+
+```text
+coverage  78.4% · sky 1823
+depth p05 2.1 · p50 6.8 · p95 14.2
+span 12.1 m
+edges 412 · splits 38 · occl 38
+```
+
+### Python engine → browser demo mapping
+
+| Python engine channel | Browser demo equivalent |
+|---|---|
+| `depth` / `depth_variance` | Depth mode point color + p05/p50/p95 stats |
+| `beam_front` / `beam_back` evidence | Front return (red) + back return (cyan) in Beam Evidence mode |
+| `beam_split_score` | Split/occluder highlight on the partial gate object |
+| `edge_score_geom` | 4-neighbor depth/material discontinuity → edge brightness |
+| `classification` / `material_core` | Material debug colors per primitive label |
+| `sky` class (ray misses) | Counted as sky in coverage stats |
+| `partial_occluder` class | Gate primitive marked `partial:true`, detected via second hit |
+| Contact sheet output | Mini 4-panel contact sheet in the HUD after each scan |
+
+The browser demo uses known primitive labels rather than learned or inferred classification. The Python engine performs the full multimodal pipeline including wave coherence, acoustic/ultrasonic channels, polarization proxy, carrier ensemble de-striping, adaptive edge fusion, and auto-framing. The demo approximates the user-facing output layers only.
+
+### Running the demo
+
+Download `lidar_tier2_demo.html` and open it in any modern browser with internet access (needed for the PlayCanvas CDN). No other files are required.
+
+Controls:
+
+```text
+WASD / arrow keys   move camera
+mouse drag          look
+Space or Scan btn   fire a scan
+R                   reset scan memory
+P                   save screenshot (composites 3D scene + scan overlay)
+```
+
+
 
 This is an experimental synthetic sensing engine, not a calibrated physics simulator.
 
