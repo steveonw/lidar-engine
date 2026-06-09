@@ -1,0 +1,11 @@
+run_id,scene,preset,class,count,frac_of_hit_px,hit_pixels
+1,demo,beam_return_debug,geom_edge,249,0.04838709677419355,5146
+1,demo,beam_return_debug,partial_occluder,216,0.04197434900893898,5146
+1,demo,beam_return_debug,foliage,228,0.04430625728721337,5146
+1,demo,beam_return_debug,solid_surface,2145,0.4168286047415468,5146
+1,demo,beam_return_debug,uncertain,1937,0.37640886125145745,5146
+2,occluder_gate,beam_return_debug,geom_edge,317,0.06038095238095238,5250
+2,occluder_gate,beam_return_debug,partial_occluder,196,0.037333333333333336,5250
+2,occluder_gate,beam_return_debug,foliage,80,0.015238095238095238,5250
+2,occluder_gate,beam_return_debug,solid_surface,2253,0.42914285714285716,5250
+2,occluder_gate,beam_return_debug,uncertain,2298,0.4377142857142857,5250
