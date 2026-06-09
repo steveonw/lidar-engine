@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LiDAR / Beam Evidence — Tier 2 Demo</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #0a0a0f; color: #cdd6e0; overflow: hidden;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none;
+  }
+  #app-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+
+  .panel {
+    position: fixed; z-index: 10;
+    background: #111118cc; backdrop-filter: blur(6px);
+    border: 1px solid #2a2a3a; border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 8px 30px #0008;
+  }
+  #left-panel { top: 14px; left: 14px; width: 320px; max-height: calc(100vh - 28px); overflow-y: auto; }
+  #right-panel { top: 14px; right: 14px; width: 250px; }
+
+  h1 { font-size: 16px; margin: 0 0 4px; color: #6cf; letter-spacing: .3px; }
+  .sub { font-size: 10.5px; line-height: 1.5; color: #8a93a5; margin: 0 0 10px; }
+  .maptoggle { font-size: 11px; color: #5af; cursor: pointer; margin: 6px 0; display: inline-block; }
+  .mapnote { font-size: 10px; line-height: 1.6; color: #7a8497; background: #0c0c14; border: 1px solid #23232f;
+             border-radius: 6px; padding: 8px; margin: 4px 0 10px; display: none; font-family: ui-monospace, monospace; }
+
+  .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: #56607a; margin: 12px 0 5px; }
+
+  .btn-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  button {
+    background: #1a1a24; color: #b9c2d4; border: 1px solid #2e2e3e;
+    border-radius: 6px; padding: 6px 9px; font-size: 11px; cursor: pointer;
+    font-family: inherit; transition: all .12s;
+  }
+  button:hover { background: #23233a; border-color: #3af; color: #dce6f5; }
+  button.active { background: #1b3a5a; border-color: #3af; color: #aee0ff; box-shadow: 0 0 0 1px #3af6 inset; }
+
+  select {
+    width: 100%; background: #1a1a24; color: #cdd6e0; border: 1px solid #2e2e3e;
+    border-radius: 6px; padding: 5px 7px; font-size: 11px; font-family: inherit; margin-top: 3px;
+  }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
+  .grid3 button { padding: 9px 4px; font-size: 10.5px; }
+
+  .stats { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; line-height: 1.7;
+           color: #9fb0c8; background: #0c0c14; border: 1px solid #23232f; border-radius: 6px; padding: 8px; margin-top: 6px; }
+  .stats b { color: #6cf; }
+
+  .checkrow { font-size: 11px; display: flex; align-items: center; gap: 6px; margin-top: 8px; color: #9aa6bd; }
+  .checkrow input { accent-color: #3af; }
+
+  #scanflash {
+    position: fixed; z-index: 20; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: #3afc; color: #02121f; font-weight: 700; font-size: 13px; letter-spacing: 1px;
+    padding: 8px 18px; border-radius: 20px; opacity: 0; pointer-events: none;
+    transition: opacity .15s; font-family: ui-monospace, monospace;
+  }
+  #scanflash.show { opacity: 1; }
+
+  .hint { font-size: 9.5px; color: #4d5670; margin-top: 10px; line-height: 1.6; font-family: ui-monospace, monospace; }
+  .legend { font-size: 10px; line-height: 1.7; margin-top: 6px; color: #9aa6bd; }
+  .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 4px; }
+</style>
+</head>
+<body>
+<canvas id="app-canvas"></canvas>
+
+<div id="left-panel" class="panel">
+  <h1>LiDAR / Beam Evidence — Tier 2 Demo</h1>
+  <p class="sub">This browser demo illustrates the interactive camera/scanner model used with the Python LiDAR engine. The Python engine performs the full multimodal sensing pipeline (depth, beam evidence, candidate gates, material/edge classification, contact sheets). This page is a lightweight playable Tier 2 showcase: camera poses, lens modes, scan outputs, and short-term point-cloud memory.</p>
+  <span class="maptoggle" id="map-toggle">▸ Python → Demo mapping</span>
+  <div class="mapnote" id="map-note">
+    depth/depth_variance → depth color<br>
+    beam_front/back → split highlight<br>
+    beam_split_score → occlusion mark<br>
+    edge_score_geom → discontinuity edge<br>
+    classification → material debug color
+  </div>
+
+  <div class="section-label">Render Mode</div>
+  <div class="btn-row" id="mode-buttons"></div>
+
+  <div class="section-label">Lens</div>
+  <select id="lens-select">
+    <option value="pinhole">Pinhole (FOV 60)</option>
+    <option value="wide">Wide (FOV 90)</option>
+    <option value="telephoto">Telephoto (FOV 30)</option>
+    <option value="ortho">Orthographic</option>
+    <option value="fisheye">Fisheye</option>
+  </select>
+
+  <div class="section-label">Resolution</div>
+  <select id="res-select">
+    <option value="low">Low (80 × 50)</option>
+    <option value="medium" selected>Medium (120 × 80)</option>
+    <option value="high">High (180 × 110)</option>
+  </select>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="hint">
+    WASD / arrows move · drag to look<br>
+    Space = scan · R = reset memory · P = screenshot
+  </div>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section-label" style="margin-top:0">Camera Grid</div>
+  <div class="grid3" id="cam-grid"></div>
+  <div class="btn-row" style="margin-top:8px">
+    <button id="scan-btn" style="flex:1;background:#1b3a5a;border-color:#3af;color:#aee0ff">⦿ Scan (Space)</button>
+  </div>
+  <label class="checkrow"><input type="checkbox" id="autoscan"> Auto-scan (1.5s)</label>
+  <div class="section-label">Live Stats</div>
+  <div class="stats" id="stats">no scan yet</div>
+</div>
+
+<div id="scanflash">SCANNING…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/playcanvas@2.3.2/build/playcanvas.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+   SCENE PRIMITIVES (used for both visual + analytic collision)
+   ============================================================ */
+const SCENE = [
+  { id:'floor',    type:'box', pos:[0,0,0],     size:[20,0.2,20], material:'floor',    color:[0.12,0.13,0.18] },
+  { id:'backwall', type:'box', pos:[0,3,-6],    size:[20,6,0.3],  material:'wall',     color:[0.16,0.17,0.22] },
+  { id:'leftwall', type:'box', pos:[-9,3,0],    size:[0.3,6,12],  material:'wall',     color:[0.15,0.16,0.20] },
+  { id:'rightwall',type:'box', pos:[9,3,0],     size:[0.3,6,12],  material:'wall',     color:[0.15,0.16,0.20] },
+  { id:'ceiling',  type:'box', pos:[0,6,0],     size:[20,0.2,20], material:'wall',     color:[0.10,0.10,0.14] },
+  { id:'table',    type:'box', pos:[-2.5,0.8,1],size:[2.2,0.2,1.4],material:'wood',    color:[0.55,0.36,0.16] },
+  { id:'tableleg', type:'box', pos:[-2.5,0.35,1],size:[1.6,0.9,1.0],material:'wood',   color:[0.42,0.27,0.12] },
+  { id:'pillar',   type:'box', pos:[3.5,1.5,-2],size:[0.9,3,0.9], material:'stone',    color:[0.45,0.46,0.50] },
+  { id:'sphere',   type:'sphere', pos:[1,1.1,1.5], size:0.7,      material:'metal',    color:[0.30,0.55,0.85] },
+  { id:'gate',     type:'box', pos:[1.0,1.2,3.0], size:[2.4,2.4,0.12], material:'occluder', color:[0.85,0.45,0.20], partial:true },
+  { id:'mat_red',  type:'box', pos:[-5,0.6,-1],  size:[0.9,1.2,0.9], material:'metal', color:[0.80,0.25,0.25] },
+  { id:'mat_grn',  type:'box', pos:[5.5,0.6,2],  size:[0.9,1.2,0.9], material:'wood',  color:[0.30,0.70,0.40] },
+  { id:'target',   type:'sphere', pos:[-1.5,2.0,-3.5], size:0.5, material:'target',    color:[0.90,0.85,0.30] },
+];
+
+const MAT_COLORS = {
+  wall:[0.40,0.42,0.52], floor:[0.30,0.32,0.40], wood:[0.70,0.46,0.22],
+  metal:[0.45,0.62,0.85], target:[0.95,0.88,0.30], occluder:[0.95,0.55,0.25], stone:[0.62,0.63,0.68]
+};
+
+/* ============================================================
+   ANALYTIC RAY INTERSECTION
+   ============================================================ */
+function rayBoxIntersect(ro, rd, bmin, bmax) {
+  let tmin = -Infinity, tmax = Infinity, axis = 0;
+  for (let i=0;i<3;i++){
+    const inv = 1/rd[i];
+    let t1 = (bmin[i]-ro[i])*inv, t2 = (bmax[i]-ro[i])*inv;
+    if (t1>t2){ const tmp=t1;t1=t2;t2=tmp; }
+    if (t1>tmin){ tmin=t1; axis=i; }
+    if (t2<tmax) tmax=t2;
+    if (tmin>tmax) return null;
+  }
+  const t = tmin > 1e-4 ? tmin : (tmax > 1e-4 ? tmax : null);
+  if (t===null) return null;
+  const n=[0,0,0];
+  // recompute axis for the chosen t
+  const hit=[ro[0]+rd[0]*t, ro[1]+rd[1]*t, ro[2]+rd[2]*t];
+  const cx=(bmin[0]+bmax[0])/2, cy=(bmin[1]+bmax[1])/2, cz=(bmin[2]+bmax[2])/2;
+  const dx=(hit[0]-cx)/(bmax[0]-bmin[0]), dy=(hit[1]-cy)/(bmax[1]-bmin[1]), dz=(hit[2]-cz)/(bmax[2]-bmin[2]);
+  const adx=Math.abs(dx),ady=Math.abs(dy),adz=Math.abs(dz);
+  if (adx>=ady && adx>=adz) n[0]=Math.sign(dx);
+  else if (ady>=adz) n[1]=Math.sign(dy);
+  else n[2]=Math.sign(dz);
+  return { t, normal:n };
+}
+
+function raySphereIntersect(ro, rd, c, r) {
+  const ox=ro[0]-c[0], oy=ro[1]-c[1], oz=ro[2]-c[2];
+  const b = ox*rd[0]+oy*rd[1]+oz*rd[2];
+  const cc = ox*ox+oy*oy+oz*oz - r*r;
+  const disc = b*b-cc;
+  if (disc<0) return null;
+  const s=Math.sqrt(disc);
+  let t = -b-s;
+  if (t<=1e-4) t=-b+s;
+  if (t<=1e-4) return null;
+  const hx=ro[0]+rd[0]*t, hy=ro[1]+rd[1]*t, hz=ro[2]+rd[2]*t;
+  const n=[(hx-c[0])/r,(hy-c[1])/r,(hz-c[2])/r];
+  return { t, normal:n };
+}
+
+function boxBounds(p){
+  return [
+    [p.pos[0]-p.size[0]/2, p.pos[1]-p.size[1]/2, p.pos[2]-p.size[2]/2],
+    [p.pos[0]+p.size[0]/2, p.pos[1]+p.size[1]/2, p.pos[2]+p.size[2]/2]
+  ];
+}
+
+function castRay(ro, rd){
+  const hits=[];
+  for (const prim of SCENE){
+    let h=null;
+    if (prim.type==='box'){ const b=boxBounds(prim); h=rayBoxIntersect(ro,rd,b[0],b[1]); }
+    else { h=raySphereIntersect(ro,rd,prim.pos,prim.size); }
+    if (h){
+      hits.push({ t:h.t, normal:h.normal, prim,
+        pos:[ro[0]+rd[0]*h.t, ro[1]+rd[1]*h.t, ro[2]+rd[2]*h.t] });
+    }
+  }
+  hits.sort((a,b)=>a.t-b.t);
+  return hits;
+}
+
+/* ============================================================
+   CAMERA / LENS RAY GENERATION + SCAN
+   ============================================================ */
+const RES = { low:{w:80,h:50}, medium:{w:120,h:80}, high:{w:180,h:110} };
+const LENS_FOV = { pinhole:60, wide:90, telephoto:30, fisheye:140 };
+
+function normalize(v){ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; }
+
+function takeScan(camPos, fwd, up, right, lensMode, resolution){
+  const res = RES[resolution];
+  const w=res.w, h=res.h;
+  const grid = new Array(w*h);
+  const aspect = w/h;
+  const fovDeg = LENS_FOV[lensMode] || 60;
+  const tanF = Math.tan((fovDeg*Math.PI/180)/2);
+  const orthoW = 6, orthoH = orthoW/aspect;
+
+  for (let j=0;j<h;j++){
+    for (let i=0;i<w;i++){
+      const px = (i+0.5)/w*2-1;      // -1..1
+      const py = 1-(j+0.5)/h*2;      // 1..-1 (top to bottom)
+      let ro = camPos, rd;
+
+      if (lensMode==='ortho'){
+        ro=[ camPos[0]+right[0]*px*orthoW + up[0]*py*orthoH,
+             camPos[1]+right[1]*px*orthoW + up[1]*py*orthoH,
+             camPos[2]+right[2]*px*orthoW + up[2]*py*orthoH ];
+        rd=fwd;
+      } else if (lensMode==='fisheye'){
+        const r = Math.hypot(px*aspect, py);
+        const maxR = aspect;
+        const theta = (r/maxR) * (fovDeg*Math.PI/180)/2 * 2; // angle from fwd
+        const phi = Math.atan2(py, px*aspect);
+        const sinT=Math.sin(theta), cosT=Math.cos(theta);
+        const dirX = sinT*Math.cos(phi), dirY = sinT*Math.sin(phi);
+        rd = normalize([
+          fwd[0]*cosT + right[0]*dirX + up[0]*dirY,
+          fwd[1]*cosT + right[1]*dirX + up[1]*dirY,
+          fwd[2]*cosT + right[2]*dirX + up[2]*dirY ]);
+      } else {
+        const sx = px*tanF*aspect, sy = py*tanF;
+        rd = normalize([
+          fwd[0]+right[0]*sx+up[0]*sy,
+          fwd[1]+right[1]*sx+up[1]*sy,
+          fwd[2]+right[2]*sx+up[2]*sy ]);
+      }
+
+      const hits = castRay(ro, rd);
+      if (hits.length===0){ grid[j*w+i]=null; continue; }
+      const first = hits[0];
+      // beam split: a partial occluder hit followed by another surface behind
+      let hasSplit=false, splitGap=0, isOccluder=false;
+      if (first.prim.partial && hits.length>1){
+        hasSplit=true; splitGap=hits[1].t-first.t; isOccluder=true;
+      } else if (first.prim.material==='occluder'){ isOccluder=true; }
+      grid[j*w+i]={
+        pos:first.pos, depth:first.t, matId:first.prim.material,
+        primId:first.prim.id,
+        beamEvidence:{ hasSplit, splitGap, edgeScore:0, isOccluder }
+      };
+    }
+  }
+  computeEdgeScores(grid, w, h);
+  return { grid, w, h, lens:lensMode, res:resolution, time:Date.now() };
+}
+
+function computeEdgeScores(grid, w, h){
+  for (let j=0;j<h;j++){
+    for (let i=0;i<w;i++){
+      const p=grid[j*w+i]; if(!p) continue;
+      let score=0;
+      const nb=[[1,0],[-1,0],[0,1],[0,-1]];
+      for (const [dx,dy] of nb){
+        const ni=i+dx, nj=j+dy;
+        if(ni<0||ni>=w||nj<0||nj>=h){ score=Math.max(score,0.6); continue; }
+        const q=grid[nj*w+ni];
+        if(!q){ score=Math.max(score,0.9); continue; }
+        if(Math.abs(q.depth-p.depth)>0.5) score=Math.max(score, Math.min(1,Math.abs(q.depth-p.depth)/2));
+        if(q.matId!==p.matId) score=Math.max(score,0.7);
+      }
+      p.beamEvidence.edgeScore=score;
+    }
+  }
+}
+
+/* ============================================================
+   MEMORY
+   ============================================================ */
+let memoryScans=[];
+function pushScan(scan){ memoryScans.push(scan); if(memoryScans.length>4) memoryScans=memoryScans.slice(-4); }
+
+/* ============================================================
+   PLAYCANVAS SETUP
+   ============================================================ */
+const canvas = document.getElementById('app-canvas');
+const app = new pc.Application(canvas, {
+  mouse:new pc.Mouse(canvas), keyboard:new pc.Keyboard(window),
+  graphicsDeviceOptions:{ preserveDrawingBuffer:true, antialias:true }
+});
+app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+app.setCanvasResolution(pc.RESOLUTION_AUTO);
+app.scene.ambientLight = new pc.Color(0.05,0.05,0.08);
+window.addEventListener('resize', ()=>app.resizeCanvas());
+
+// Camera
+const camEntity = new pc.Entity('camera');
+camEntity.addComponent('camera', { clearColor:new pc.Color(0.04,0.04,0.06), farClip:200, fov:60 });
+app.root.addChild(camEntity);
+
+// Light
+const light = new pc.Entity('light');
+light.addComponent('light', { type:'directional', color:new pc.Color(1,0.95,0.9), intensity:1.0, castShadows:true,
+  shadowBias:0.05, shadowDistance:40 });
+light.setEulerAngles(50,30,0);
+app.root.addChild(light);
+const fill = new pc.Entity('fill');
+fill.addComponent('light',{type:'omni',color:new pc.Color(0.4,0.5,0.8),intensity:0.6,range:30});
+fill.setPosition(0,5,4);
+app.root.addChild(fill);
+
+/* ---------- Visual entities ---------- */
+function mkMat(color,emis){
+  const m=new pc.StandardMaterial();
+  m.diffuse=new pc.Color(color[0],color[1],color[2]);
+  const e=emis||0.25;
+  m.emissive=new pc.Color(color[0]*e,color[1]*e,color[2]*e);
+  m.gloss=0.4; m.metalness=0.1; m.useMetalness=true;
+  m.update(); return m;
+}
+function createVisualBox(app, prim){
+  const e=new pc.Entity(prim.id);
+  e.addComponent('render',{type:'box',material:mkMat(prim.color, prim.material==='occluder'?0.5:0.22)});
+  e.setLocalScale(prim.size[0],prim.size[1],prim.size[2]);
+  e.setPosition(prim.pos[0],prim.pos[1],prim.pos[2]);
+  if(prim.partial){ // semi-transparent for occluder/gate
+    const m=e.render.meshInstances[0].material; m.opacity=0.55; m.blendType=pc.BLEND_NORMAL; m.update();
+  }
+  app.root.addChild(e); return e;
+}
+function createVisualSphere(app, prim){
+  const e=new pc.Entity(prim.id);
+  e.addComponent('render',{type:'sphere',material:mkMat(prim.color,0.3)});
+  const d=prim.size*2; e.setLocalScale(d,d,d);
+  e.setPosition(prim.pos[0],prim.pos[1],prim.pos[2]);
+  app.root.addChild(e); return e;
+}
+const sceneEntities=[];
+for(const p of SCENE){ sceneEntities.push(p.type==='box'?createVisualBox(app,p):createVisualSphere(app,p)); }
+
+/* ---------- Point cloud mesh ---------- */
+let pcEntity=null;
+function buildPointMesh(app, positions, colors){
+  const mesh=new pc.Mesh(app.graphicsDevice);
+  mesh.setPositions(positions);
+  mesh.setColors32(colors);
+  mesh.update(pc.PRIMITIVE_POINTS);
+  return mesh;
+}
+function renderPointCloud(positions, colors){
+  if(pcEntity){ pcEntity.destroy(); pcEntity=null; }
+  if(positions.length===0) return;
+  const mesh=buildPointMesh(app, positions, colors);
+  const mat=new pc.StandardMaterial();
+  mat.useLighting=false; mat.emissiveVertexColor=true; mat.diffuse=new pc.Color(0,0,0);
+  mat.emissive=new pc.Color(1,1,1); mat.update();
+  const mi=new pc.MeshInstance(mesh, mat);
+  pcEntity=new pc.Entity('pointcloud');
+  pcEntity.addComponent('render',{ meshInstances:[mi] });
+  app.root.addChild(pcEntity);
+}
+function setSceneVisible(v){ for(const e of sceneEntities) e.enabled=v; }
+
+/* ============================================================
+   COLOR ENCODERS FOR MODES
+   ============================================================ */
+function depthColor(d){ const t=Math.min(1,d/16); return [(1-t),(1-t)*0.9+0.1,1-t*0.7]; }
+function matColor(m){ return MAT_COLORS[m]||[0.6,0.6,0.6]; }
+
+function scanToCloud(scan, mode, ageFactor){
+  const pos=[], col=[];
+  const af = ageFactor===undefined?1:ageFactor;
+  const g=scan.grid;
+  for(let k=0;k<g.length;k++){
+    const p=g[k]; if(!p) continue;
+    pos.push(p.pos[0],p.pos[1],p.pos[2]);
+    let c=[1,1,1];
+    if(mode==='depth'){ c=depthColor(p.depth); }
+    else if(mode==='latest'){ c=matColor(p.matId); }
+    else if(mode==='memory'||mode==='hybrid'){ c=matColor(p.matId); }
+    else if(mode==='beam'){
+      if(p.beamEvidence.hasSplit||p.beamEvidence.isOccluder) c=[0.95,0.2,0.2];
+      else if(p.beamEvidence.edgeScore>0.4) c=[0.98,0.6,0.15];
+      else c=[0.25,0.85,0.4];
+    } else if(mode==='matedge'){
+      c=matColor(p.matId).slice();
+      if(p.beamEvidence.edgeScore>0.4){ c=[Math.min(1,c[0]*1.6+0.2),Math.min(1,c[1]*1.6+0.2),Math.min(1,c[2]*1.6+0.2)]; }
+    }
+    col.push((c[0]*af*255)|0,(c[1]*af*255)|0,(c[2]*af*255)|0,255);
+  }
+  return { pos, col };
+}
+
+/* ============================================================
+   MODES
+   ============================================================ */
+let currentMode='normal';
+const MODES=[
+  {id:'normal',label:'Normal'},{id:'depth',label:'Depth'},{id:'latest',label:'Latest Scan'},
+  {id:'memory',label:'Memory Cloud'},{id:'hybrid',label:'Hybrid'},{id:'beam',label:'Beam Evidence'},
+  {id:'matedge',label:'Mat/Edge Debug'}
+];
+
+function refreshCloud(){
+  if(currentMode==='normal'){ renderPointCloud([],new Uint8Array(0)); setSceneVisible(true); return; }
+  setSceneVisible(currentMode==='hybrid'||currentMode==='normal');
+  const allPos=[], allCol=[];
+  if(currentMode==='memory'||currentMode==='hybrid'){
+    const n=memoryScans.length;
+    memoryScans.forEach((s,idx)=>{
+      const age=0.35+0.65*((idx+1)/n); // newest brightest
+      const {pos,col}=scanToCloud(s,currentMode,age);
+      for(const v of pos)allPos.push(v); for(const v of col)allCol.push(v);
+    });
+  } else {
+    const s=memoryScans[memoryScans.length-1]; if(!s){ renderPointCloud([],new Uint8Array(0)); return; }
+    const {pos,col}=scanToCloud(s,currentMode,1);
+    for(const v of pos)allPos.push(v); for(const v of col)allCol.push(v);
+  }
+  renderPointCloud(new Float32Array(allPos), new Uint8Array(allCol));
+}
+function setMode(m){
+  currentMode=m;
+  document.querySelectorAll('#mode-buttons button').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
+  updateLegend(); refreshCloud();
+}
+
+/* ============================================================
+   CAMERA STATE + CONTROL
+   ============================================================ */
+const CAM_GRID={
+  A1:[-6,1.5,6],A2:[0,1.5,8],A3:[6,1.5,6],
+  B1:[-8,1.5,0],B2:[0,2.5,0],B3:[8,1.5,0],
+  C1:[3,6,6],C2:[0,0.5,5],C3:[2,1.5,3]
+};
+let yaw=0,pitch=0;
+let camPos=[0,1.5,8];
+
+function lookAtCenter(){
+  const target=[0,1,0];
+  const dir=normalize([target[0]-camPos[0],target[1]-camPos[1],target[2]-camPos[2]]);
+  yaw=Math.atan2(dir[0],-dir[2]); // 0 facing -z
+  pitch=Math.asin(Math.max(-1,Math.min(1,dir[1])));
+}
+function getBasis(){
+  const fwd=normalize([Math.sin(yaw)*Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw)*Math.cos(pitch)]);
+  const worldUp=[0,1,0];
+  let right=normalize([fwd[2]*worldUp[1]-fwd[1]*worldUp[2], fwd[0]*worldUp[2]-fwd[2]*worldUp[0], fwd[1]*worldUp[0]-fwd[0]*worldUp[1]]);
+  let up=[ right[1]*fwd[2]-right[2]*fwd[1], right[2]*fwd[0]-right[0]*fwd[2], right[0]*fwd[1]-right[1]*fwd[0] ];
+  return {fwd,right,up};
+}
+function syncCamera(){
+  camEntity.setPosition(camPos[0],camPos[1],camPos[2]);
+  const {fwd}=getBasis();
+  camEntity.lookAt(camPos[0]+fwd[0],camPos[1]+fwd[1],camPos[2]+fwd[2]);
+  // update fov to reflect lens for visual fidelity (non-ortho)
+  const lens=document.getElementById('lens-select').value;
+  if(lens==='ortho'){ camEntity.camera.projection=pc.PROJECTION_ORTHOGRAPHIC; camEntity.camera.orthoHeight=6; }
+  else { camEntity.camera.projection=pc.PROJECTION_PERSPECTIVE; camEntity.camera.fov=LENS_FOV[lens]||60; }
+}
+function gotoCam(key){ camPos=CAM_GRID[key].slice(); lookAtCenter(); syncCamera();
+  document.querySelectorAll('#cam-grid button').forEach(b=>b.classList.toggle('active',b.dataset.cam===key)); }
+
+/* ============================================================
+   SCAN ACTION
+   ============================================================ */
+function doScan(){
+  const lens=document.getElementById('lens-select').value;
+  const res=document.getElementById('res-select').value;
+  const {fwd,up,right}=getBasis();
+  const t0=performance.now();
+  const scan=takeScan(camPos,fwd,up,right,lens,res);
+  const dt=performance.now()-t0;
+  pushScan(scan);
+  if(currentMode==='normal') setMode('latest');
+  else refreshCloud();
+  flash(); updateStats(scan,dt);
+}
+function flash(){ const f=document.getElementById('scanflash'); f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),180); }
+
+function updateStats(scan,dt){
+  const g=scan.grid; let hits=0,split=0,edge=0,occ=0; const matCount={}; let dsum=0;
+  for(const p of g){ if(!p)continue; hits++; dsum+=p.depth;
+    if(p.beamEvidence.hasSplit)split++; if(p.beamEvidence.edgeScore>0.4)edge++; if(p.beamEvidence.isOccluder)occ++;
+    matCount[p.matId]=(matCount[p.matId]||0)+1; }
+  const total=scan.w*scan.h;
+  const topMat=Object.entries(matCount).sort((a,b)=>b[1]-a[1]).slice(0,3)
+    .map(([m,n])=>m+':'+n).join('  ');
+  document.getElementById('stats').innerHTML=
+    `lens <b>${scan.lens}</b> · res <b>${scan.w}×${scan.h}</b><br>`+
+    `rays <b>${total}</b> · hits <b>${hits}</b><br>`+
+    `mean depth <b>${hits?(dsum/hits).toFixed(2):'—'}</b> m<br>`+
+    `edges <b>${edge}</b> · splits <b>${split}</b> · occl <b>${occ}</b><br>`+
+    `scan time <b>${dt.toFixed(1)}</b> ms<br>`+
+    `memory <b>${memoryScans.length}/4</b><br>`+
+    `<span style="color:#56607a">mats: ${topMat}</span>`;
+}
+
+/* ============================================================
+   LEGEND
+   ============================================================ */
+function sw(c){ return `<span class="sw" style="background:rgb(${(c[0]*255)|0},${(c[1]*255)|0},${(c[2]*255)|0})"></span>`; }
+function updateLegend(){
+  const el=document.getElementById('legend'); let h='';
+  if(currentMode==='depth') h=`${sw([1,1,1])}near &nbsp; ${sw([0.1,0.1,0.3])}far`;
+  else if(currentMode==='beam') h=`${sw([0.95,0.2,0.2])}split/occluder<br>${sw([0.98,0.6,0.15])}edge<br>${sw([0.25,0.85,0.4])}solid`;
+  else if(currentMode==='latest'||currentMode==='memory'||currentMode==='hybrid'||currentMode==='matedge'){
+    h=Object.entries(MAT_COLORS).map(([m,c])=>sw(c)+m).join('&nbsp; ');
+    if(currentMode==='matedge') h+='<br><span style="color:#56607a">brighter = edgeScore &gt; 0.4</span>';
+    if(currentMode==='memory') h+='<br><span style="color:#56607a">newer scans brighter</span>';
+  } else h='<span style="color:#56607a">scene render — press Scan</span>';
+  el.innerHTML=h;
+}
+
+/* ============================================================
+   UI WIRING
+   ============================================================ */
+const modeWrap=document.getElementById('mode-buttons');
+MODES.forEach(m=>{ const b=document.createElement('button'); b.textContent=m.label; b.dataset.mode=m.id;
+  b.onclick=()=>setMode(m.id); modeWrap.appendChild(b); });
+const camWrap=document.getElementById('cam-grid');
+Object.keys(CAM_GRID).forEach(k=>{ const b=document.createElement('button'); b.textContent=k; b.dataset.cam=k;
+  b.onclick=()=>gotoCam(k); camWrap.appendChild(b); });
+document.getElementById('scan-btn').onclick=doScan;
+document.getElementById('lens-select').onchange=syncCamera;
+document.getElementById('map-toggle').onclick=()=>{ const n=document.getElementById('map-note');
+  const open=n.style.display==='block'; n.style.display=open?'none':'block';
+  document.getElementById('map-toggle').textContent=(open?'▸':'▾')+' Python → Demo mapping'; };
+
+let autoTimer=null;
+document.getElementById('autoscan').onchange=(e)=>{
+  if(e.target.checked){ autoTimer=setInterval(doScan,1500); } else { clearInterval(autoTimer); autoTimer=null; }
+};
+
+/* ---------- Keyboard movement ---------- */
+const keys={};
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='SELECT') return;
+  keys[e.code]=true;
+  if(e.code==='Space'){ e.preventDefault(); doScan(); }
+  if(e.code==='KeyR'){ memoryScans=[]; document.getElementById('stats').textContent='memory reset'; refreshCloud(); }
+  if(e.code==='KeyP'){ screenshot(); }
+});
+window.addEventListener('keyup',e=>{ keys[e.code]=false; });
+
+/* ---------- Mouse look (drag) ---------- */
+let dragging=false,lastX=0,lastY=0;
+canvas.addEventListener('mousedown',e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; });
+window.addEventListener('mouseup',()=>dragging=false);
+window.addEventListener('mousemove',e=>{
+  if(!dragging) return;
+  const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
+  yaw+=dx*0.005; pitch-=dy*0.005;
+  pitch=Math.max(-1.5,Math.min(1.5,pitch));
+  syncCamera();
+});
+
+/* ---------- Screenshot ---------- */
+function screenshot(){
+  app.render(); // ensure fresh frame
+  requestAnimationFrame(()=>{
+    try{
+      const url=canvas.toDataURL('image/png');
+      const a=document.createElement('a'); a.href=url; a.download='lidar_scan_'+Date.now()+'.png'; a.click();
+    }catch(err){ console.warn('screenshot failed',err); }
+  });
+}
+
+/* ---------- Per-frame movement ---------- */
+app.on('update', dt=>{
+  const {fwd,right}=getBasis();
+  const spd=6*dt; let moved=false;
+  const step=(v,s)=>{ camPos[0]+=v[0]*s; camPos[1]+=v[1]*s; camPos[2]+=v[2]*s; moved=true; };
+  if(keys['KeyW']||keys['ArrowUp']) step(fwd,spd);
+  if(keys['KeyS']||keys['ArrowDown']) step(fwd,-spd);
+  if(keys['KeyA']||keys['ArrowLeft']) step(right,-spd);
+  if(keys['KeyD']||keys['ArrowRight']) step(right,spd);
+  if(keys['KeyQ']) { camPos[1]-=spd; moved=true; }
+  if(keys['KeyE']) { camPos[1]+=spd; moved=true; }
+  if(moved) syncCamera();
+});
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+app.start();
+gotoCam('A2');
+setMode('normal');
+updateLegend();
+// initial scan so there's something to show
+setTimeout(()=>{ doScan(); setMode('latest'); }, 250);
+</script>
+</body>
+</html>
