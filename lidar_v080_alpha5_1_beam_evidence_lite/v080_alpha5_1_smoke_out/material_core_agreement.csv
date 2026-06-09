@@ -1,0 +1,15 @@
+piece_type,pixel_count,valid_pixel_count,ignored_pixel_count,expected_label,expected_label_frac,top_label,top_label_frac,report_suffix,sky_frac,solid_surface_frac,geom_edge_frac,foliage_frac,partial_occluder_frac,acoustic_only_frac,optical_only_frac,hard_smooth_frac,soft_material_frac,wood_material_frac,metal_or_glass_frac,stone_hard_frac,uncertain_frac,run_id,scene,preset
+canopy,254,246,8,foliage,0.926829268292683,foliage,0.926829268292683,core_ignore_geom_edge,0.0,0.0040650406504065045,0.0,0.926829268292683,0.012195121951219513,0.012195121951219513,0.0,0.0,0.0,0.0,0.0,0.0,0.044715447154471545,1,demo,beam_return_debug
+chimney,10,3,7,,,solid_surface,0.6666666666666666,core_ignore_geom_edge,0.0,0.6666666666666666,0.0,0.0,0.0,0.0,0.0,0.3333333333333333,0.0,0.0,0.0,0.0,0.0,1,demo,beam_return_debug
+ground,4367,4200,167,,,uncertain,0.44785714285714284,core_ignore_geom_edge,0.0,0.42738095238095236,0.0,0.0,0.045714285714285714,0.0,0.07904761904761905,0.0,0.0,0.0,0.0,0.0,0.44785714285714284,1,demo,beam_return_debug
+leg,5,5,0,,,solid_surface,1.0,core_ignore_geom_edge,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,demo,beam_return_debug
+log,262,250,12,,,solid_surface,0.876,core_ignore_geom_edge,0.0,0.876,0.0,0.0,0.02,0.0,0.036,0.0,0.0,0.0,0.0,0.0,0.068,1,demo,beam_return_debug
+post,34,24,10,,,solid_surface,0.75,core_ignore_geom_edge,0.0,0.75,0.0,0.0,0.25,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,demo,beam_return_debug
+rock,8,8,0,,,solid_surface,0.875,core_ignore_geom_edge,0.0,0.875,0.0,0.0,0.125,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,demo,beam_return_debug
+roof,137,114,23,,,solid_surface,0.4824561403508772,core_ignore_geom_edge,0.0,0.4824561403508772,0.0,0.0,0.06140350877192982,0.0,0.02631578947368421,0.20175438596491227,0.0,0.0,0.0,0.0,0.22807017543859648,1,demo,beam_return_debug
+torso,8,5,3,,,solid_surface,1.0,core_ignore_geom_edge,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,demo,beam_return_debug
+trunk,57,39,18,,,solid_surface,0.9230769230769231,core_ignore_geom_edge,0.0,0.9230769230769231,0.0,0.0,0.05128205128205128,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.02564102564102564,1,demo,beam_return_debug
+foliage,120,96,24,foliage,0.8333333333333334,foliage,0.8333333333333334,core_ignore_geom_edge,0.0,0.0,0.0,0.8333333333333334,0.125,0.041666666666666664,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2,occluder_gate,beam_return_debug
+ground,4915,4681,234,,,uncertain,0.48985259559923094,core_ignore_geom_edge,0.0,0.4533219397564623,0.0,0.0,0.03503524887844478,0.0,0.021790215765861997,0.0,0.0,0.0,0.0,0.0,0.48985259559923094,2,occluder_gate,beam_return_debug
+stone,145,106,39,stone_hard,0.0,solid_surface,0.8679245283018868,core_ignore_geom_edge,0.0,0.8679245283018868,0.0,0.0,0.11320754716981132,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.018867924528301886,2,occluder_gate,beam_return_debug
+wood,70,50,20,wood_material,0.0,solid_surface,0.78,core_ignore_geom_edge,0.0,0.78,0.0,0.0,0.16,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.06,2,occluder_gate,beam_return_debug

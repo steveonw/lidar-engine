@@ -1,0 +1,3 @@
+hit_labeled_pixels,geom_edge_pixels,geom_edge_frac,edge_components,edge_components_ge_min_size,largest_edge_component_px,partial_occluder_frac,optical_only_frac,acoustic_only_frac,solid_surface_frac,hard_smooth_frac,uncertain_frac,run_id,scene,preset
+5146,249,0.04838709677419355,121,1,20,0.04197434900893898,0.06684803731053245,0.000582977069568597,0.4168286047415468,0.004663816556548776,0.37640886125145745,1,demo,beam_return_debug
+5250,317,0.06038095238095238,76,4,64,0.037333333333333336,0.019428571428571427,0.0007619047619047619,0.42914285714285716,0.0,0.4377142857142857,2,occluder_gate,beam_return_debug

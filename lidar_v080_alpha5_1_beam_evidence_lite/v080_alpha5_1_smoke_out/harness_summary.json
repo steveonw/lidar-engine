@@ -1,0 +1,27 @@
+{
+  "engine": "lidar_lenses_wave_v080_alpha5_1.py",
+  "plan": "lidar_wave_test_plan_v080_alpha5_1_smoke.xlsx",
+  "out_dir": "v080_alpha5_1_smoke_out",
+  "runs_requested": 2,
+  "runs_completed": 2,
+  "runs_failed": 0,
+  "top_contact_sheets": "v080_alpha5_1_smoke_out/top_contact_sheets.png",
+  "candidate_gate_sheets": [
+    "v080_alpha5_1_smoke_out/run_01_demo_beam_return_debug/demo_01_beam_return_debug_candidate_gates.png",
+    "v080_alpha5_1_smoke_out/run_02_occluder_gate_beam_return_debug/occluder_gate_02_beam_return_debug_candidate_gates.png"
+  ],
+  "csv_outputs": [
+    "sweep_metrics.csv",
+    "beam_return_summary.csv",
+    "quick_verdict.csv",
+    "gate_breakdown.csv",
+    "class_balance_summary.csv",
+    "classification_counts.csv",
+    "edge_threshold_diagnostics_summary.csv",
+    "structure_density_report.csv",
+    "material_channel_report.csv",
+    "material_core_agreement.csv",
+    "material_filled_agreement.csv",
+    "boundary_adjacency_report.csv"
+  ]
+}
