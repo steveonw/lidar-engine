@@ -123,6 +123,8 @@
   <label class="checkrow"><input type="checkbox" id="autoscan"> Auto-scan (1.5s)</label>
   <div class="section-label">Live Stats</div>
   <div class="stats" id="stats">no scan yet</div>
+  <div class="section-label" id="cs-label" style="display:none">Contact Sheet</div>
+  <canvas id="contact-sheet" style="display:none;width:100%;border-radius:4px;image-rendering:pixelated;margin-top:2px"></canvas>
 </div>
 
 <div id="scanflash">SCANNING…</div>
@@ -269,14 +271,16 @@ function takeScan(camPos, fwd, up, right, lensMode, resolution){
       const hits = castRay(ro, rd);
       if (hits.length===0){ grid[j*w+i]=null; continue; }
       const first = hits[0];
+      const second = hits.length>1 ? hits[1] : null;
       // beam split: a partial occluder hit followed by another surface behind
-      let hasSplit=false, splitGap=0, isOccluder=false;
-      if (first.prim.partial && hits.length>1){
-        hasSplit=true; splitGap=hits[1].t-first.t; isOccluder=true;
+      let hasSplit=false, splitGap=0, isOccluder=false, backReturn=null;
+      if (first.prim.partial && second){
+        hasSplit=true; splitGap=second.t-first.t; isOccluder=true;
+        backReturn={ pos:second.pos, depth:second.t, matId:second.prim.material };
       } else if (first.prim.material==='occluder'){ isOccluder=true; }
       grid[j*w+i]={
         pos:first.pos, depth:first.t, matId:first.prim.material,
-        primId:first.prim.id,
+        primId:first.prim.id, backReturn,
         beamEvidence:{ hasSplit, splitGap, edgeScore:0, isOccluder }
       };
     }
@@ -424,7 +428,7 @@ function scanToCloud(scan, mode, ageFactor){
     if(mode==='depth'){ c=depthColor(p.depth); }
     else if(mode==='latest'||mode==='memory'||mode==='hybrid'){ c=matColor(p.matId); }
     else if(mode==='beam'){
-      if(p.beamEvidence.hasSplit||p.beamEvidence.isOccluder) c=[0.95,0.2,0.2];
+      if(p.beamEvidence.hasSplit||p.beamEvidence.isOccluder) c=[0.95,0.2,0.15];
       else if(p.beamEvidence.edgeScore>0.4) c=[0.98,0.6,0.15];
       else c=[0.25,0.85,0.4];
     } else if(mode==='matedge'){
@@ -432,6 +436,10 @@ function scanToCloud(scan, mode, ageFactor){
       if(p.beamEvidence.edgeScore>0.4){ c=[Math.min(1,c[0]*1.6+0.2),Math.min(1,c[1]*1.6+0.2),Math.min(1,c[2]*1.6+0.2)]; }
     }
     pts.push({ pos:p.pos, r:(c[0]*af*255)|0, g:(c[1]*af*255)|0, b:(c[2]*af*255)|0, a:255 });
+    // back return for beam evidence mode — render as cyan behind the gate
+    if(mode==='beam' && p.backReturn){
+      pts.push({ pos:p.backReturn.pos, r:80, g:210, b:255, a:(200*af)|0 });
+    }
   }
   return pts;
 }
@@ -523,21 +531,75 @@ function doScan(){
 function flash(){ const f=document.getElementById('scanflash'); f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),180); }
 
 function updateStats(scan,dt){
-  const g=scan.grid; let hits=0,split=0,edge=0,occ=0; const matCount={}; let dsum=0;
-  for(const p of g){ if(!p)continue; hits++; dsum+=p.depth;
-    if(p.beamEvidence.hasSplit)split++; if(p.beamEvidence.edgeScore>0.4)edge++; if(p.beamEvidence.isOccluder)occ++;
+  const g=scan.grid; let hits=0,split=0,edge=0,occ=0; const matCount={}; const depths=[];
+  for(const p of g){ if(!p){ matCount['sky']=(matCount['sky']||0)+1; continue; }
+    hits++; depths.push(p.depth);
+    if(p.beamEvidence.hasSplit)split++; if(p.beamEvidence.edgeScore>0.4)edge++;
+    if(p.beamEvidence.isOccluder)occ++;
     matCount[p.matId]=(matCount[p.matId]||0)+1; }
   const total=scan.w*scan.h;
-  const topMat=Object.entries(matCount).sort((a,b)=>b[1]-a[1]).slice(0,3)
+  const coverage=(hits/total*100).toFixed(1);
+  depths.sort((a,b)=>a-b);
+  const pct=q=>depths.length?depths[Math.floor(q*(depths.length-1))].toFixed(1):'—';
+  const span=depths.length?(depths[depths.length-1]-depths[0]).toFixed(1):'—';
+  const topMat=Object.entries(matCount).filter(([m])=>m!=='sky').sort((a,b)=>b[1]-a[1]).slice(0,3)
     .map(([m,n])=>m+':'+n).join('  ');
   document.getElementById('stats').innerHTML=
     `lens <b>${scan.lens}</b> · res <b>${scan.w}×${scan.h}</b><br>`+
-    `rays <b>${total}</b> · hits <b>${hits}</b><br>`+
-    `mean depth <b>${hits?(dsum/hits).toFixed(2):'—'}</b> m<br>`+
+    `coverage <b>${coverage}%</b> · sky <b>${matCount['sky']||0}</b><br>`+
+    `depth p05 <b>${pct(0.05)}</b> · p50 <b>${pct(0.5)}</b> · p95 <b>${pct(0.95)}</b><br>`+
+    `span <b>${span}</b> m<br>`+
     `edges <b>${edge}</b> · splits <b>${split}</b> · occl <b>${occ}</b><br>`+
-    `scan time <b>${dt.toFixed(1)}</b> ms<br>`+
-    `memory <b>${memoryScans.length}/4</b><br>`+
+    `scan time <b>${dt.toFixed(1)}</b> ms · mem <b>${memoryScans.length}/4</b><br>`+
     `<span style="color:#56607a">mats: ${topMat}</span>`;
+  drawContactSheet(scan);
+}
+
+/* ============================================================
+   CONTACT SHEET
+   ============================================================ */
+function drawContactSheet(scan){
+  const csCanvas=document.getElementById('contact-sheet');
+  const csLabel=document.getElementById('cs-label');
+  const {grid,w,h}=scan;
+  const panels=4, gap=1;
+  const pw=w, ph=h;
+  csCanvas.width=(pw+gap)*panels-gap; csCanvas.height=ph+14;
+  csCanvas.style.display='block'; csLabel.style.display='block';
+  const ctx=csCanvas.getContext('2d');
+  ctx.fillStyle='#080810'; ctx.fillRect(0,0,csCanvas.width,csCanvas.height);
+
+  const titles=['Depth','Beam','Mat','Edge'];
+  const maxD = grid.reduce((m,p)=>p?Math.max(m,p.depth):m, 1);
+
+  function drawPanel(idx, colorFn){
+    const ox=idx*(pw+gap);
+    for(let j=0;j<ph;j++){
+      for(let i=0;i<pw;i++){
+        const p=grid[j*w+i];
+        const c=colorFn(p);
+        ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;
+        ctx.fillRect(ox+i,j,1,1);
+      }
+    }
+    ctx.fillStyle='#5a6070'; ctx.font='7px sans-serif';
+    ctx.fillText(titles[idx], ox+1, ph+10);
+  }
+
+  drawPanel(0, p=>{ if(!p) return [10,10,18];
+    const t=Math.min(1,p.depth/maxD); return [(1-t)*255|0,(1-t)*220|0,(1-t*0.7)*255|0]; });
+
+  drawPanel(1, p=>{ if(!p) return [10,10,18];
+    if(p.beamEvidence.hasSplit||p.beamEvidence.isOccluder) return [240,50,40];
+    if(p.beamEvidence.edgeScore>0.4) return [250,155,40];
+    return [65,220,100]; });
+
+  const MC=MAT_COLORS;
+  drawPanel(2, p=>{ if(!p) return [10,10,18];
+    const c=MC[p.matId]||[0.5,0.5,0.5]; return [c[0]*255|0,c[1]*255|0,c[2]*255|0]; });
+
+  drawPanel(3, p=>{ if(!p) return [10,10,18];
+    const e=p.beamEvidence.edgeScore; return [e*255|0,e*180|0,10]; });
 }
 
 /* ============================================================
@@ -547,7 +609,7 @@ function sw(c){ return `<span class="sw" style="background:rgb(${(c[0]*255)|0},$
 function updateLegend(){
   const el=document.getElementById('legend'); let h='';
   if(currentMode==='depth') h=`${sw([1,1,1])}near &nbsp; ${sw([0.1,0.1,0.3])}far`;
-  else if(currentMode==='beam') h=`${sw([0.95,0.2,0.2])}split/occluder<br>${sw([0.98,0.6,0.15])}edge<br>${sw([0.25,0.85,0.4])}solid`;
+  else if(currentMode==='beam') h=`${sw([0.95,0.2,0.15])}front/occluder &nbsp;${sw([0.31,0.82,1])}back return<br>${sw([0.98,0.6,0.15])}edge &nbsp;${sw([0.25,0.85,0.4])}solid`;
   else if(currentMode==='latest'||currentMode==='memory'||currentMode==='hybrid'||currentMode==='matedge'){
     h=Object.entries(MAT_COLORS).map(([m,c])=>sw(c)+m).join('&nbsp; ');
     if(currentMode==='matedge') h+='<br><span style="color:#56607a">brighter = edgeScore &gt; 0.4</span>';
