@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LiDAR / Beam Evidence — Tier 2 Demo V3.5 (Sensor Network)</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #0a0a0f; color: #cdd6e0; overflow: hidden;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none;
+  }
+  #app-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+
+  .panel {
+    position: fixed; z-index: 10;
+    background: #111118cc; backdrop-filter: blur(6px);
+    border: 1px solid #2a2a3a; border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 8px 30px #0008;
+  }
+  #left-panel { top: 14px; left: 14px; width: 320px; max-height: calc(100vh - 28px); overflow-y: auto; }
+  #right-panel { top: 14px; right: 14px; width: 270px; max-height: calc(100vh - 28px); overflow-y: auto; }
+
+  h1 { font-size: 16px; margin: 0 0 4px; color: #6cf; letter-spacing: .3px; }
+  .sub { font-size: 10.5px; line-height: 1.5; color: #8a93a5; margin: 0 0 10px; }
+  .maptoggle { font-size: 11px; color: #5af; cursor: pointer; margin: 6px 0; display: inline-block; }
+  .mapnote { font-size: 10px; line-height: 1.6; color: #7a8497; background: #0c0c14; border: 1px solid #23232f;
+             border-radius: 6px; padding: 8px; margin: 4px 0 10px; display: none; font-family: ui-monospace, monospace; }
+
+  .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: #56607a; margin: 12px 0 5px; }
+
+  .btn-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  button {
+    background: #1a1a24; color: #b9c2d4; border: 1px solid #2e2e3e;
+    border-radius: 6px; padding: 6px 9px; font-size: 11px; cursor: pointer;
+    font-family: inherit; transition: all .12s;
+  }
+  button:hover { background: #23233a; border-color: #3af; color: #dce6f5; }
+  button.active { background: #1b3a5a; border-color: #3af; color: #aee0ff; box-shadow: 0 0 0 1px #3af6 inset; }
+
+  select {
+    width: 100%; background: #1a1a24; color: #cdd6e0; border: 1px solid #2e2e3e;
+    border-radius: 6px; padding: 5px 7px; font-size: 11px; font-family: inherit; margin-top: 3px;
+  }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
+  .grid3 button { padding: 9px 4px; font-size: 10.5px; }
+
+  .sensor-btn {
+    flex: 1 1 46%; min-width: 110px; text-align: left;
+    padding: 7px 8px; font-size: 10.5px;
+  }
+  .sensor-btn.active { background: #1b3a5a; border-color: #3af; color: #aee0ff; box-shadow: 0 0 0 1px #3af6 inset; }
+  .sensor-btn .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+
+  .replay-row { display:flex; align-items:center; gap:5px; margin-top:6px; }
+  .replay-row button { flex:1; }
+  .replay-row .timeline { font-family: ui-monospace, monospace; font-size:10.5px; color:#9fb0c8; min-width:54px; text-align:center; }
+
+  .stats { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; line-height: 1.7;
+           color: #9fb0c8; background: #0c0c14; border: 1px solid #23232f; border-radius: 6px; padding: 8px; margin-top: 6px; }
+  .stats b { color: #6cf; }
+
+  .checkrow { font-size: 11px; display: flex; align-items: center; gap: 6px; margin-top: 8px; color: #9aa6bd; }
+  .checkrow input { accent-color: #3af; }
+
+  #scanflash {
+    position: fixed; z-index: 20; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: #3afc; color: #02121f; font-weight: 700; font-size: 13px; letter-spacing: 1px;
+    padding: 8px 18px; border-radius: 20px; opacity: 0; pointer-events: none;
+    transition: opacity .15s; font-family: ui-monospace, monospace;
+  }
+  #scanflash.show { opacity: 1; }
+
+  .guide-msg {
+    position: fixed; z-index: 21; top: 18%; left: 50%; transform: translate(-50%,-50%);
+    background: #0b1c2ee6; color: #aee0ff; font-weight: 600; font-size: 16px; letter-spacing: .4px;
+    padding: 14px 26px; border-radius: 12px; opacity: 0; pointer-events: none;
+    border: 1px solid #3af; box-shadow: 0 0 24px #3af6;
+    transition: opacity .25s; font-family: -apple-system, "Segoe UI", sans-serif; text-align:center; max-width: 60vw;
+  }
+  .guide-msg.show { opacity: 1; }
+
+  .hint { font-size: 9.5px; color: #4d5670; margin-top: 10px; line-height: 1.6; font-family: ui-monospace, monospace; }
+  .legend { font-size: 10px; line-height: 1.7; margin-top: 6px; color: #9aa6bd; }
+  .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 4px; }
+  #scan-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: block; }
+</style>
+</head>
+<body>
+<canvas id="app-canvas"></canvas>
+<canvas id="scan-canvas"></canvas>
+
+<div id="left-panel" class="panel">
+  <h1>LiDAR / Beam Evidence — Tier 2 Demo <span style="color:#3af">V3.5</span></h1>
+  <p class="sub">This browser demo illustrates the interactive camera/scanner model used with the Python LiDAR engine. V3.5 adds a <b style="color:#9fb0c8">sensor network</b>: six independent "eyes" (player, security cams, drone, guard, gate scanner) each with their own pose, lens, and short-term memory. Scan them individually or all at once, fuse their evidence into a combined point cloud, replay scan history, and run a guided demo. The Python engine performs the full multimodal sensing pipeline (depth, beam evidence, candidate gates, material/edge classification, contact sheets); this page is the lightweight playable Tier 2 showcase.</p>
+  <span class="maptoggle" id="map-toggle">▸ Python → Demo mapping</span>
+  <div class="mapnote" id="map-note">
+    depth/depth_variance → depth color<br>
+    beam_front/back → split highlight<br>
+    beam_split_score → occlusion mark<br>
+    edge_score_geom → discontinuity edge<br>
+    classification → material debug color<br>
+    sensor fusion → All Sensors cloud (tinted)<br>
+    scan_history → Replay timeline
+  </div>
+
+  <div class="section-label">Render Mode</div>
+  <div class="btn-row" id="mode-buttons"></div>
+
+  <div class="section-label">Lens</div>
+  <select id="lens-select">
+    <option value="pinhole">Pinhole (FOV 60)</option>
+    <option value="wide">Wide (FOV 90)</option>
+    <option value="telephoto">Telephoto (FOV 30)</option>
+    <option value="ortho">Orthographic</option>
+    <option value="fisheye">Fisheye</option>
+  </select>
+
+  <div class="section-label">Resolution</div>
+  <select id="res-select">
+    <option value="low">Low (80 × 50)</option>
+    <option value="medium" selected>Medium (120 × 80)</option>
+    <option value="high">High (180 × 110)</option>
+  </select>
+
+  <div class="section-label">Scan Style</div>
+  <select id="style-select">
+    <option value="instant">Instant</option>
+    <option value="rolling_v">Rolling Vertical</option>
+    <option value="rolling_h">Rolling Horizontal</option>
+    <option value="rolling_c">Rolling Center-Out</option>
+  </select>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="hint">
+    WASD / arrows move · drag to look<br>
+    Space = scan selected · R = clear memory · P = screenshot<br>
+    Lens / Resolution / Style apply to the active sensor.
+  </div>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section-label" style="margin-top:0">Sensor Network</div>
+  <div class="btn-row" id="sensor-list"></div>
+  <div class="btn-row" style="margin-top:6px">
+    <button id="scan-sel-btn" style="flex:1;background:#1b3a5a;border-color:#3af;color:#aee0ff">⦿ Scan Selected</button>
+    <button id="scan-all-btn" style="flex:1">⦿⦿ Scan All</button>
+  </div>
+  <div class="btn-row" style="margin-top:5px">
+    <button id="allsensors-btn" style="flex:1">All Sensors View</button>
+  </div>
+  <label class="checkrow"><input type="checkbox" id="autoscan"> Auto-scan Selected (1.5s)</label>
+  <div class="btn-row" style="margin-top:6px">
+    <button id="clearmem-btn" style="flex:1">Clear Memory</button>
+    <button id="clearall-btn" style="flex:1">Clear All</button>
+  </div>
+  <div class="btn-row" style="margin-top:6px">
+    <button id="demo-btn" style="flex:1;background:#2a1b3a;border-color:#a3f;color:#e0aeff">⚡ Guided Demo</button>
+  </div>
+
+  <div class="section-label">Camera Grid <span style="color:#3a4258;text-transform:none;letter-spacing:0">(Player Eye pose)</span></div>
+  <div class="grid3" id="cam-grid"></div>
+
+  <div class="section-label">Live Stats</div>
+  <div class="stats" id="stats">no scan yet</div>
+
+  <div class="section-label">Replay Controls</div>
+  <div class="replay-row">
+    <button id="replay-prev">◀ Prev</button>
+    <button id="replay-play">▶ Play</button>
+    <button id="replay-next">Next ▶</button>
+  </div>
+  <div class="replay-row"><span class="timeline" id="replay-timeline" style="flex:1">0 / 0</span></div>
+
+  <div class="section-label" id="cs-label" style="display:none">Contact Sheet</div>
+  <canvas id="contact-sheet" style="display:none;width:100%;border-radius:4px;image-rendering:pixelated;margin-top:2px"></canvas>
+</div>
+
+<div id="scanflash">SCANNING…</div>
+<div id="guide-msg" class="guide-msg"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/playcanvas@2.3.2/build/playcanvas.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+   SCENE PRIMITIVES (used for both visual + analytic collision)
+   ============================================================ */
+const SCENE = [
+  { id:'floor',    type:'box', pos:[0,0,0],     size:[20,0.2,20], material:'floor',    color:[0.12,0.13,0.18] },
+  { id:'backwall', type:'box', pos:[0,3,-6],    size:[20,6,0.3],  material:'wall',     color:[0.16,0.17,0.22] },
+  { id:'leftwall', type:'box', pos:[-9,3,0],    size:[0.3,6,12],  material:'wall',     color:[0.15,0.16,0.20] },
+  { id:'rightwall',type:'box', pos:[9,3,0],     size:[0.3,6,12],  material:'wall',     color:[0.15,0.16,0.20] },
+  { id:'ceiling',  type:'box', pos:[0,6,0],     size:[20,0.2,20], material:'wall',     color:[0.10,0.10,0.14] },
+  { id:'table',    type:'box', pos:[-2.5,0.8,1],size:[2.2,0.2,1.4],material:'wood',    color:[0.55,0.36,0.16] },
+  { id:'tableleg', type:'box', pos:[-2.5,0.35,1],size:[1.6,0.9,1.0],material:'wood',   color:[0.42,0.27,0.12] },
+  { id:'pillar',   type:'box', pos:[3.5,1.5,-2],size:[0.9,3,0.9], material:'stone',    color:[0.45,0.46,0.50] },
+  { id:'sphere',   type:'sphere', pos:[1,1.1,1.5], size:0.7,      material:'metal',    color:[0.30,0.55,0.85] },
+  { id:'gate',     type:'box', pos:[1.0,1.2,3.0], size:[2.4,2.4,0.12], material:'occluder', color:[0.85,0.45,0.20], partial:true },
+  { id:'mat_red',  type:'box', pos:[-5,0.6,-1],  size:[0.9,1.2,0.9], material:'metal', color:[0.80,0.25,0.25] },
+  { id:'mat_grn',  type:'box', pos:[5.5,0.6,2],  size:[0.9,1.2,0.9], material:'wood',  color:[0.30,0.70,0.40] },
+  { id:'target',   type:'sphere', pos:[-1.5,2.0,-3.5], size:0.5, material:'target',    color:[0.90,0.85,0.30] },
+];
+
+const MAT_COLORS = {
+  wall:[0.40,0.42,0.52], floor:[0.30,0.32,0.40], wood:[0.70,0.46,0.22],
+  metal:[0.45,0.62,0.85], target:[0.95,0.88,0.30], occluder:[0.95,0.55,0.25], stone:[0.62,0.63,0.68]
+};
+
+/* ============================================================
+   ANALYTIC RAY INTERSECTION
+   ============================================================ */
+function rayBoxIntersect(ro, rd, bmin, bmax) {
+  let tmin = -Infinity, tmax = Infinity, axis = 0;
+  for (let i=0;i<3;i++){
+    const inv = 1/rd[i];
+    let t1 = (bmin[i]-ro[i])*inv, t2 = (bmax[i]-ro[i])*inv;
+    if (t1>t2){ const tmp=t1;t1=t2;t2=tmp; }
+    if (t1>tmin){ tmin=t1; axis=i; }
+    if (t2<tmax) tmax=t2;
+    if (tmin>tmax) return null;
+  }
+  const t = tmin > 0.15 ? tmin : (tmax > 0.15 ? tmax : null);
+  if (t===null) return null;
+  const n=[0,0,0];
+  // recompute axis for the chosen t
+  const hit=[ro[0]+rd[0]*t, ro[1]+rd[1]*t, ro[2]+rd[2]*t];
+  const cx=(bmin[0]+bmax[0])/2, cy=(bmin[1]+bmax[1])/2, cz=(bmin[2]+bmax[2])/2;
+  const dx=(hit[0]-cx)/(bmax[0]-bmin[0]), dy=(hit[1]-cy)/(bmax[1]-bmin[1]), dz=(hit[2]-cz)/(bmax[2]-bmin[2]);
+  const adx=Math.abs(dx),ady=Math.abs(dy),adz=Math.abs(dz);
+  if (adx>=ady && adx>=adz) n[0]=Math.sign(dx);
+  else if (ady>=adz) n[1]=Math.sign(dy);
+  else n[2]=Math.sign(dz);
+  return { t, normal:n };
+}
+
+function raySphereIntersect(ro, rd, c, r) {
+  const ox=ro[0]-c[0], oy=ro[1]-c[1], oz=ro[2]-c[2];
+  const b = ox*rd[0]+oy*rd[1]+oz*rd[2];
+  const cc = ox*ox+oy*oy+oz*oz - r*r;
+  const disc = b*b-cc;
+  if (disc<0) return null;
+  const s=Math.sqrt(disc);
+  let t = -b-s;
+  if (t<=0.15) t=-b+s;
+  if (t<=0.15) return null;
+  const hx=ro[0]+rd[0]*t, hy=ro[1]+rd[1]*t, hz=ro[2]+rd[2]*t;
+  const n=[(hx-c[0])/r,(hy-c[1])/r,(hz-c[2])/r];
+  return { t, normal:n };
+}
+
+function boxBounds(p){
+  return [
+    [p.pos[0]-p.size[0]/2, p.pos[1]-p.size[1]/2, p.pos[2]-p.size[2]/2],
+    [p.pos[0]+p.size[0]/2, p.pos[1]+p.size[1]/2, p.pos[2]+p.size[2]/2]
+  ];
+}
+
+function castRay(ro, rd){
+  const hits=[];
+  for (const prim of SCENE){
+    let h=null;
+    if (prim.type==='box'){ const b=boxBounds(prim); h=rayBoxIntersect(ro,rd,b[0],b[1]); }
+    else { h=raySphereIntersect(ro,rd,prim.pos,prim.size); }
+    if (h){
+      hits.push({ t:h.t, normal:h.normal, prim,
+        pos:[ro[0]+rd[0]*h.t, ro[1]+rd[1]*h.t, ro[2]+rd[2]*h.t] });
+    }
+  }
+  hits.sort((a,b)=>a.t-b.t);
+  return hits;
+}
+
+/* ============================================================
+   CAMERA / LENS RAY GENERATION + SCAN
+   ============================================================ */
+const RES = { low:{w:80,h:50}, medium:{w:120,h:80}, high:{w:180,h:110} };
+const LENS_FOV = { pinhole:60, wide:90, telephoto:30, fisheye:140 };
+
+function normalize(v){ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; }
+
+// Compute a single ray for a pixel (i,j) given pose + lens. Shared by instant + rolling.
+function pixelRay(i,j,w,h, camPos, fwd, up, right, lensMode){
+  const aspect = w/h;
+  const fovDeg = LENS_FOV[lensMode] || 60;
+  const tanF = Math.tan((fovDeg*Math.PI/180)/2);
+  const orthoW = 6, orthoH = orthoW/aspect;
+  const px = (i+0.5)/w*2-1;
+  const py = 1-(j+0.5)/h*2;
+  let ro = camPos, rd;
+  if (lensMode==='ortho'){
+    ro=[ camPos[0]+right[0]*px*orthoW + up[0]*py*orthoH,
+         camPos[1]+right[1]*px*orthoW + up[1]*py*orthoH,
+         camPos[2]+right[2]*px*orthoW + up[2]*py*orthoH ];
+    rd=fwd;
+  } else if (lensMode==='fisheye'){
+    const r = Math.hypot(px*aspect, py);
+    const maxR = aspect;
+    const theta = Math.min(1,r/maxR) * (fovDeg*Math.PI/180)/2;
+    const phi = Math.atan2(py, px*aspect);
+    const sinT=Math.sin(theta), cosT=Math.cos(theta);
+    const dirX = sinT*Math.cos(phi), dirY = sinT*Math.sin(phi);
+    rd = normalize([
+      fwd[0]*cosT + right[0]*dirX + up[0]*dirY,
+      fwd[1]*cosT + right[1]*dirX + up[1]*dirY,
+      fwd[2]*cosT + right[2]*dirX + up[2]*dirY ]);
+  } else {
+    const sx = px*tanF*aspect, sy = py*tanF;
+    rd = normalize([
+      fwd[0]+right[0]*sx+up[0]*sy,
+      fwd[1]+right[1]*sx+up[1]*sy,
+      fwd[2]+right[2]*sx+up[2]*sy ]);
+  }
+  return { ro, rd };
+}
+
+// Cast one pixel into the grid (used by instant + rolling).
+function castPixel(grid, i, j, w, ro, rd){
+  const hits = castRay(ro, rd);
+  if (hits.length===0){ grid[j*w+i]=null; return; }
+  const first = hits[0];
+  const second = hits.length>1 ? hits[1] : null;
+  let hasSplit=false, splitGap=0, isOccluder=false, backReturn=null;
+  if (first.prim.partial && second){
+    hasSplit=true; splitGap=second.t-first.t; isOccluder=true;
+    backReturn={ pos:second.pos, depth:second.t, matId:second.prim.material };
+  } else if (first.prim.material==='occluder'){ isOccluder=true; }
+  grid[j*w+i]={
+    pos:first.pos, depth:first.t, matId:first.prim.material,
+    primId:first.prim.id, backReturn,
+    beamEvidence:{ hasSplit, splitGap, edgeScore:0, isOccluder }
+  };
+}
+
+function takeScan(camPos, fwd, up, right, lensMode, resolution){
+  const res = RES[resolution];
+  const w=res.w, h=res.h;
+  const grid = new Array(w*h);
+  for (let j=0;j<h;j++){
+    for (let i=0;i<w;i++){
+      const { ro, rd } = pixelRay(i,j,w,h, camPos, fwd, up, right, lensMode);
+      castPixel(grid, i, j, w, ro, rd);
+    }
+  }
+  computeEdgeScores(grid, w, h);
+  return { grid, w, h, lens:lensMode, res:resolution, time:Date.now() };
+}
+
+function computeEdgeScores(grid, w, h){
+  for (let j=0;j<h;j++){
+    for (let i=0;i<w;i++){
+      const p=grid[j*w+i]; if(!p) continue;
+      let score=0;
+      const nb=[[1,0],[-1,0],[0,1],[0,-1]];
+      for (const [dx,dy] of nb){
+        const ni=i+dx, nj=j+dy;
+        if(ni<0||ni>=w||nj<0||nj>=h){ score=Math.max(score,0.6); continue; }
+        const q=grid[nj*w+ni];
+        if(!q){ score=Math.max(score,0.9); continue; }
+        if(Math.abs(q.depth-p.depth)>0.5) score=Math.max(score, Math.min(1,Math.abs(q.depth-p.depth)/2));
+        if(q.matId!==p.matId) score=Math.max(score,0.7);
+      }
+      p.beamEvidence.edgeScore=score;
+    }
+  }
+}
+
+/* ============================================================
+   SENSOR NETWORK  (replaces global memoryScans)
+   ============================================================ */
+const SENSOR_TINTS = {
+  player:[1,1,1], secA:[1,0.7,0.7], secB:[0.7,0.7,1],
+  drone:[0.7,1,0.7], guard:[1,1,0.6], gate:[1,0.7,1]
+};
+const MARKER_COLORS = {
+  player:[1,1,1], secA:[1,0.3,0.3], secB:[1,0.3,0.3],
+  drone:[1,0.9,0.3], guard:[1,0.6,0.2], gate:[0.7,0.3,1]
+};
+
+const SENSORS = [
+  { id:'player',   name:'Player Eye',     type:'player',   pos:[0,1.5,8],     yaw:0,    pitch:0,    lens:'pinhole',   resolution:'medium', scanStyle:'instant', memoryScans:[], scanHistory:[], autoScan:false, autoInterval:null, markerEntity:null },
+  { id:'secA',     name:'Security Cam A', type:'security', pos:[-7,4,-4],     yaw:0.8,  pitch:-0.5, lens:'wide',      resolution:'low',    scanStyle:'instant', memoryScans:[], scanHistory:[], autoScan:false, autoInterval:null, markerEntity:null },
+  { id:'secB',     name:'Security Cam B', type:'security', pos:[7,4,-4],      yaw:-0.8, pitch:-0.5, lens:'wide',      resolution:'low',    scanStyle:'instant', memoryScans:[], scanHistory:[], autoScan:false, autoInterval:null, markerEntity:null },
+  { id:'drone',    name:'Drone Eye',      type:'drone',    pos:[0,7,2],       yaw:0,    pitch:-1.1, lens:'wide',      resolution:'medium', scanStyle:'instant', memoryScans:[], scanHistory:[], autoScan:false, autoInterval:null, markerEntity:null },
+  { id:'guard',    name:'Guard Eye',      type:'guard',    pos:[-3,1.5,4],    yaw:0.3,  pitch:0,    lens:'telephoto', resolution:'medium', scanStyle:'instant', memoryScans:[], scanHistory:[], autoScan:false, autoInterval:null, markerEntity:null },
+  { id:'gate',     name:'Gate Scanner',   type:'static',   pos:[1,1.5,5.5],   yaw:3.14, pitch:0,    lens:'pinhole',   resolution:'medium', scanStyle:'instant', memoryScans:[], scanHistory:[], autoScan:false, autoInterval:null, markerEntity:null },
+];
+
+let activeSensorId = 'player';
+let viewSource = 'selected'; // 'selected' or 'allSensors'
+let globalHistory = []; // max 40 entries
+let replayIndex = -1;
+let replayActive = false;
+let replayTimer = null;
+
+function getActiveSensor(){ return SENSORS.find(s=>s.id===activeSensorId); }
+function getSensor(id){ return SENSORS.find(s=>s.id===id); }
+
+function basisFor(yaw,pitch){
+  const fwd=normalize([Math.sin(yaw)*Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw)*Math.cos(pitch)]);
+  const worldUp=[0,1,0];
+  const right=normalize(cross(fwd,worldUp));
+  const up=normalize(cross(right,fwd));
+  return {fwd,right,up};
+}
+
+function pushSensorScan(sensor, scan){
+  sensor.memoryScans.push(scan);
+  if(sensor.memoryScans.length > 4) sensor.memoryScans = sensor.memoryScans.slice(-4);
+  const record = { sensorId:sensor.id, sensorName:sensor.name, scan, timestamp:Date.now() };
+  sensor.scanHistory.push(record);
+  if(sensor.scanHistory.length > 20) sensor.scanHistory = sensor.scanHistory.slice(-20);
+  globalHistory.push(record);
+  if(globalHistory.length > 40) globalHistory = globalHistory.slice(-40);
+  replayIndex = globalHistory.length - 1;
+  updateReplayUI();
+}
+
+// Instant scan of a single sensor. Returns the scan (also pushed + stats updated).
+function scanSensor(sensor){
+  if(sensor.scanStyle && sensor.scanStyle.startsWith('rolling')){
+    startRollingScan(sensor);
+    return null;
+  }
+  const {fwd,up,right}=basisFor(sensor.yaw, sensor.pitch);
+  const t0=performance.now();
+  const scan=takeScan(sensor.pos,fwd,up,right,sensor.lens,sensor.resolution);
+  const dt=performance.now()-t0;
+  scan.scanTime = dt;
+  pushSensorScan(sensor, scan);
+  finalizeAfterScan(sensor, scan, dt);
+  return scan;
+}
+
+function finalizeAfterScan(sensor, scan, dt){
+  if(viewSource==='selected' && sensor.id===activeSensorId){
+    if(currentMode==='normal') setMode('latest');
+    else refreshCloud();
+    updateStats(scan,dt);
+  } else {
+    refreshCloud();
+    if(sensor.id===activeSensorId) updateStats(scan,dt);
+    else updateStats(null,0);
+  }
+  flash();
+}
+
+function setActiveSensor(id){
+  activeSensorId = id;
+  viewSource = 'selected';
+  const s = getActiveSensor();
+  camPos = s.pos.slice();
+  yaw = s.yaw; pitch = s.pitch;
+  // sync left-panel selects to this sensor's params
+  document.getElementById('lens-select').value = s.lens;
+  document.getElementById('res-select').value = s.resolution;
+  document.getElementById('style-select').value = s.scanStyle;
+  syncCamera();
+  updateSensorUI();
+  refreshCloud();
+  if(currentMode!=='normal'){
+    const last = s.memoryScans[s.memoryScans.length-1];
+    updateStats(last||null, last? (last.scanTime||0):0);
+  }
+}
+
+function updateSensorUI(){
+  document.querySelectorAll('#sensor-list button').forEach(b=>
+    b.classList.toggle('active', b.dataset.sensor===activeSensorId && viewSource==='selected'));
+  document.getElementById('allsensors-btn').classList.toggle('active', viewSource==='allSensors');
+  document.getElementById('autoscan').checked = getActiveSensor().autoScan;
+  updateMarkers();
+}
+
+/* ============================================================
+   POINT CLOUD BUILDERS
+   ============================================================ */
+function buildCloudForSensor(sensor, mode){
+  let allPts=[];
+  if(mode==='memory'||mode==='hybrid'){
+    const n=sensor.memoryScans.length;
+    sensor.memoryScans.forEach((s,idx)=>{
+      const age=0.35+0.65*((idx+1)/n);
+      allPts=allPts.concat(scanToCloud(s,mode,age));
+    });
+  } else {
+    const s=sensor.memoryScans[sensor.memoryScans.length-1];
+    if(s) allPts=scanToCloud(s,mode,1);
+  }
+  return allPts;
+}
+
+function tintPoints(pts, tint){
+  for(const p of pts){
+    p.r=(p.r*tint[0])|0; p.g=(p.g*tint[1])|0; p.b=(p.b*tint[2])|0;
+  }
+  return pts;
+}
+
+function buildCloudForAllSensors(mode){
+  let allPts=[];
+  for(const sensor of SENSORS){
+    const tint = SENSOR_TINTS[sensor.id]||[1,1,1];
+    const scans = sensor.memoryScans.slice(-2); // last 2 each
+    const n = scans.length;
+    scans.forEach((s,idx)=>{
+      const age = 0.4+0.6*((idx+1)/Math.max(1,n));
+      let pts = scanToCloud(s, mode, age);
+      pts = tintPoints(pts, tint);
+      allPts = allPts.concat(pts);
+    });
+  }
+  return allPts;
+}
+
+/* ============================================================
+   PLAYCANVAS SETUP
+   ============================================================ */
+const canvas = document.getElementById('app-canvas');
+const app = new pc.Application(canvas, {
+  mouse:new pc.Mouse(canvas), keyboard:new pc.Keyboard(window),
+  graphicsDeviceOptions:{ preserveDrawingBuffer:true, antialias:true }
+});
+app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+app.setCanvasResolution(pc.RESOLUTION_AUTO);
+app.scene.ambientLight = new pc.Color(0.05,0.05,0.08);
+window.addEventListener('resize', ()=>app.resizeCanvas());
+
+// Camera
+const camEntity = new pc.Entity('camera');
+camEntity.addComponent('camera', { clearColor:new pc.Color(0.04,0.04,0.06), farClip:200, fov:60 });
+app.root.addChild(camEntity);
+
+// Light
+const light = new pc.Entity('light');
+light.addComponent('light', { type:'directional', color:new pc.Color(1,0.95,0.9), intensity:1.0, castShadows:true,
+  shadowBias:0.05, shadowDistance:40 });
+light.setEulerAngles(50,30,0);
+app.root.addChild(light);
+const fill = new pc.Entity('fill');
+fill.addComponent('light',{type:'omni',color:new pc.Color(0.4,0.5,0.8),intensity:0.6,range:30});
+fill.setPosition(0,5,4);
+app.root.addChild(fill);
+
+/* ---------- Visual entities ---------- */
+function mkMat(color,emis){
+  const m=new pc.StandardMaterial();
+  m.diffuse=new pc.Color(color[0],color[1],color[2]);
+  const e=emis||0.25;
+  m.emissive=new pc.Color(color[0]*e,color[1]*e,color[2]*e);
+  m.gloss=0.4; m.metalness=0.1; m.useMetalness=true;
+  m.update(); return m;
+}
+function createVisualBox(app, prim){
+  const e=new pc.Entity(prim.id);
+  e.addComponent('render',{type:'box',material:mkMat(prim.color, prim.material==='occluder'?0.5:0.22)});
+  e.setLocalScale(prim.size[0],prim.size[1],prim.size[2]);
+  e.setPosition(prim.pos[0],prim.pos[1],prim.pos[2]);
+  if(prim.partial){ // semi-transparent for occluder/gate
+    const m=e.render.meshInstances[0].material; m.opacity=0.55; m.blendType=pc.BLEND_NORMAL; m.update();
+  }
+  app.root.addChild(e); return e;
+}
+function createVisualSphere(app, prim){
+  const e=new pc.Entity(prim.id);
+  e.addComponent('render',{type:'sphere',material:mkMat(prim.color,0.3)});
+  const d=prim.size*2; e.setLocalScale(d,d,d);
+  e.setPosition(prim.pos[0],prim.pos[1],prim.pos[2]);
+  app.root.addChild(e); return e;
+}
+const sceneEntities=[];
+for(const p of SCENE){ sceneEntities.push(p.type==='box'?createVisualBox(app,p):createVisualSphere(app,p)); }
+
+/* ---------- Sensor marker entities ---------- */
+function createSensorMarkers(){
+  for(const s of SENSORS){
+    const col = MARKER_COLORS[s.id]||[1,1,1];
+    const e = new pc.Entity('marker_'+s.id);
+    let isSphere = (s.type==='player'||s.type==='drone');
+    if(isSphere){
+      const r = s.type==='drone'?0.15:0.12;
+      e.addComponent('render',{type:'sphere',material:mkMat(col,0.8)});
+      e.setLocalScale(r*2,r*2,r*2);
+    } else {
+      e.addComponent('render',{type:'box',material:mkMat(col,0.8)});
+      e.setLocalScale(0.2,0.2,0.2);
+    }
+    e.setPosition(s.pos[0],s.pos[1],s.pos[2]);
+    app.root.addChild(e);
+    s.markerEntity = e;
+    s._markerBaseScale = isSphere ? (s.type==='drone'?0.30:0.24) : 0.20;
+  }
+}
+function updateMarkers(){
+  for(const s of SENSORS){
+    if(!s.markerEntity) continue;
+    const active = (s.id===activeSensorId);
+    const base = s._markerBaseScale;
+    const sc = active ? base*1.7 : base;
+    s.markerEntity.setLocalScale(sc,sc,sc);
+    const mi = s.markerEntity.render.meshInstances[0];
+    const col = MARKER_COLORS[s.id]||[1,1,1];
+    const e = active?1.4:0.7;
+    mi.material.emissive = new pc.Color(Math.min(1,col[0]*e),Math.min(1,col[1]*e),Math.min(1,col[2]*e));
+    mi.material.update();
+  }
+}
+
+/* ---------- 2D overlay point cloud ---------- */
+const scanCanvas = document.getElementById('scan-canvas');
+const scanCtx = scanCanvas.getContext('2d');
+function resizeScanCanvas(){
+  scanCanvas.width = window.innerWidth;
+  scanCanvas.height = window.innerHeight;
+}
+resizeScanCanvas();
+window.addEventListener('resize', resizeScanCanvas);
+
+let _pendingCloudPoints = null;
+
+function renderPointCloud(points){
+  _pendingCloudPoints = points;
+}
+
+function draw2DCloud(){
+  scanCtx.clearRect(0, 0, scanCanvas.width, scanCanvas.height);
+  const pts = _pendingCloudPoints;
+  const w = scanCanvas.width, h = scanCanvas.height;
+  if(pts && pts.length){
+    const cam = camEntity.camera;
+    const wp = new pc.Vec3();
+    const sp = new pc.Vec3();
+    for(const pt of pts){
+      wp.set(pt.pos[0], pt.pos[1], pt.pos[2]);
+      cam.worldToScreen(wp, sp);
+      if(sp.z <= 0) continue;
+      const sx = sp.x, sy = sp.y;
+      if(sx < -2 || sy < -2 || sx > w+2 || sy > h+2) continue;
+      scanCtx.fillStyle = `rgba(${pt.r},${pt.g},${pt.b},${pt.a/255})`;
+      scanCtx.fillRect(sx-1, sy-1, 3, 3);
+    }
+  }
+  // Rolling scan moving band
+  if(rollingState && !rollingState.done){
+    const prog = rollingState.progress||0;
+    scanCtx.strokeStyle='rgba(90,210,255,0.85)';
+    scanCtx.lineWidth=2;
+    scanCtx.beginPath();
+    if(rollingState.dir==='h'){
+      const y=prog*h; scanCtx.moveTo(0,y); scanCtx.lineTo(w,y);
+    } else if(rollingState.dir==='c'){
+      const half = prog*w/2;
+      scanCtx.moveTo(w/2-half,0); scanCtx.lineTo(w/2-half,h);
+      scanCtx.moveTo(w/2+half,0); scanCtx.lineTo(w/2+half,h);
+    } else {
+      const x=prog*w; scanCtx.moveTo(x,0); scanCtx.lineTo(x,h);
+    }
+    scanCtx.stroke();
+  }
+}
+
+// Hook into PlayCanvas render loop to keep the 2D overlay in sync
+app.on('postrender', draw2DCloud);
+
+function setSceneVisible(v){ for(const e of sceneEntities) e.enabled=v; }
+
+/* ---------- Active sensor frustum cone (immediate lines) ---------- */
+app.on('postrender', ()=>{
+  const s = getActiveSensor();
+  if(!s) return;
+  const {fwd,up,right}=basisFor(s.yaw,s.pitch);
+  const o = s.pos;
+  const D=3;
+  const fovDeg = LENS_FOV[s.lens]||60;
+  const tanF = Math.tan((fovDeg*Math.PI/180)/2);
+  const a = 1.4 * tanF * D, b = tanF * D;
+  const col = MARKER_COLORS[s.id]||[1,1,1];
+  const C = new pc.Color(col[0],col[1],col[2],1);
+  const start = new pc.Vec3(o[0],o[1],o[2]);
+  function endPt(sx,sy){
+    return new pc.Vec3(
+      o[0]+(fwd[0]+right[0]*sx+up[0]*sy)*D,
+      o[1]+(fwd[1]+right[1]*sx+up[1]*sy)*D,
+      o[2]+(fwd[2]+right[2]*sx+up[2]*sy)*D);
+  }
+  // forward
+  app.drawLine(start, new pc.Vec3(o[0]+fwd[0]*D,o[1]+fwd[1]*D,o[2]+fwd[2]*D), C);
+  // 4 corners
+  app.drawLine(start, endPt( a, b), C);
+  app.drawLine(start, endPt(-a, b), C);
+  app.drawLine(start, endPt( a,-b), C);
+  app.drawLine(start, endPt(-a,-b), C);
+});
+
+/* ============================================================
+   COLOR ENCODERS FOR MODES
+   ============================================================ */
+function depthColor(d){ const t=Math.min(1,d/16); return [(1-t),(1-t)*0.9+0.1,1-t*0.7]; }
+function matColor(m){ return MAT_COLORS[m]||[0.6,0.6,0.6]; }
+
+function scanToCloud(scan, mode, ageFactor){
+  const pts=[];
+  const af = ageFactor===undefined?1:ageFactor;
+  const g=scan.grid;
+  for(let k=0;k<g.length;k++){
+    const p=g[k]; if(!p) continue;
+    let c=[1,1,1];
+    if(mode==='depth'){ c=depthColor(p.depth); }
+    else if(mode==='latest'||mode==='memory'||mode==='hybrid'){ c=matColor(p.matId); }
+    else if(mode==='beam'){
+      if(p.beamEvidence.hasSplit||p.beamEvidence.isOccluder) c=[0.95,0.2,0.15];
+      else if(p.beamEvidence.edgeScore>0.4) c=[0.98,0.6,0.15];
+      else c=[0.25,0.85,0.4];
+    } else if(mode==='matedge'){
+      c=matColor(p.matId).slice();
+      if(p.beamEvidence.edgeScore>0.4){ c=[Math.min(1,c[0]*1.6+0.2),Math.min(1,c[1]*1.6+0.2),Math.min(1,c[2]*1.6+0.2)]; }
+    }
+    pts.push({ pos:p.pos, r:(c[0]*af*255)|0, g:(c[1]*af*255)|0, b:(c[2]*af*255)|0, a:255 });
+    // back return for beam evidence mode — render as cyan behind the gate
+    if(mode==='beam' && p.backReturn){
+      pts.push({ pos:p.backReturn.pos, r:80, g:210, b:255, a:(200*af)|0 });
+    }
+  }
+  return pts;
+}
+
+/* ============================================================
+   MODES
+   ============================================================ */
+let currentMode='normal';
+const MODES=[
+  {id:'normal',label:'Normal'},{id:'depth',label:'Depth'},{id:'latest',label:'Latest Scan'},
+  {id:'memory',label:'Memory Cloud'},{id:'hybrid',label:'Hybrid'},{id:'beam',label:'Beam Evidence'},
+  {id:'matedge',label:'Material + Boundaries'}
+];
+
+function refreshCloud(){
+  if(currentMode==='normal'){ _pendingCloudPoints=null; scanCtx.clearRect(0,0,scanCanvas.width,scanCanvas.height); setSceneVisible(true); return; }
+  setSceneVisible(currentMode==='hybrid'||currentMode==='normal');
+
+  // Replay override: if a replay record is being shown, draw that single scan.
+  if(replayActive && replayIndex>=0 && replayIndex<globalHistory.length){
+    const rec = globalHistory[replayIndex];
+    const mode = (currentMode==='memory'||currentMode==='hybrid')?'latest':currentMode;
+    let pts = scanToCloud(rec.scan, mode, 1);
+    pts = tintPoints(pts, SENSOR_TINTS[rec.sensorId]||[1,1,1]);
+    renderPointCloud(pts);
+    return;
+  }
+
+  let allPts=[];
+  if(viewSource==='allSensors'){
+    allPts = buildCloudForAllSensors(currentMode);
+  } else {
+    allPts = buildCloudForSensor(getActiveSensor(), currentMode);
+  }
+  renderPointCloud(allPts);
+}
+function setMode(m){
+  currentMode=m;
+  document.querySelectorAll('#mode-buttons button').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
+  updateLegend(); refreshCloud();
+}
+
+/* ============================================================
+   CAMERA STATE + CONTROL
+   ============================================================ */
+const CAM_GRID={
+  A1:[-6,1.5,6],A2:[0,1.5,8],A3:[6,1.5,6],
+  B1:[-8,1.5,0],B2:[0,2.5,0],B3:[8,1.5,0],
+  C1:[3,6,6],C2:[0,0.5,5],C3:[4,1.5,5]
+};
+let yaw=0,pitch=0;
+let camPos=[0,1.5,8];
+
+function lookAtCenter(){
+  const target=[0,1,0];
+  const dir=normalize([target[0]-camPos[0],target[1]-camPos[1],target[2]-camPos[2]]);
+  yaw=Math.atan2(dir[0],-dir[2]); // 0 facing -z
+  pitch=Math.asin(Math.max(-1,Math.min(1,dir[1])));
+}
+function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+function getBasis(){
+  return basisFor(yaw,pitch);
+}
+function syncCamera(){
+  camEntity.setPosition(camPos[0],camPos[1],camPos[2]);
+  const {fwd}=getBasis();
+  camEntity.lookAt(camPos[0]+fwd[0],camPos[1]+fwd[1],camPos[2]+fwd[2]);
+  // update fov to reflect lens for visual fidelity (non-ortho)
+  const lens=document.getElementById('lens-select').value;
+  if(lens==='ortho'){ camEntity.camera.projection=pc.PROJECTION_ORTHOGRAPHIC; camEntity.camera.orthoHeight=6; }
+  else { camEntity.camera.projection=pc.PROJECTION_PERSPECTIVE; camEntity.camera.fov=LENS_FOV[lens]||60; }
+}
+function gotoCam(key){
+  // Camera grid now controls the Player Eye pose.
+  const player = getSensor('player');
+  player.pos = CAM_GRID[key].slice();
+  if(activeSensorId==='player'){
+    camPos=CAM_GRID[key].slice(); lookAtCenter();
+    player.yaw=yaw; player.pitch=pitch;
+    syncCamera();
+  } else {
+    // still update player pose; recompute its look-at
+    const tmpPos=camPos.slice(), tmpYaw=yaw, tmpPitch=pitch;
+    camPos=player.pos.slice(); lookAtCenter();
+    player.yaw=yaw; player.pitch=pitch;
+    camPos=tmpPos; yaw=tmpYaw; pitch=tmpPitch;
+  }
+  if(player.markerEntity) player.markerEntity.setPosition(player.pos[0],player.pos[1],player.pos[2]);
+  document.querySelectorAll('#cam-grid button').forEach(b=>b.classList.toggle('active',b.dataset.cam===key));
+}
+
+/* ============================================================
+   SCAN ACTIONS
+   ============================================================ */
+function doScanSelected(){
+  // sync active sensor params from left panel before scanning
+  const s=getActiveSensor();
+  s.lens=document.getElementById('lens-select').value;
+  s.resolution=document.getElementById('res-select').value;
+  s.scanStyle=document.getElementById('style-select').value;
+  if(activeSensorId==='player'){ s.pos=camPos.slice(); s.yaw=yaw; s.pitch=pitch; }
+  replayActive=false;
+  scanSensor(s);
+}
+function doScanAll(){
+  replayActive=false;
+  const player=getActiveSensor();
+  if(activeSensorId==='player'){ player.pos=camPos.slice(); player.yaw=yaw; player.pitch=pitch; }
+  for(const s of SENSORS){
+    if(s.scanStyle && s.scanStyle.startsWith('rolling')){
+      // do instant for batch to avoid colliding rolling states
+      const {fwd,up,right}=basisFor(s.yaw,s.pitch);
+      const t0=performance.now();
+      const scan=takeScan(s.pos,fwd,up,right,s.lens,s.resolution);
+      scan.scanTime=performance.now()-t0;
+      pushSensorScan(s,scan);
+    } else {
+      const {fwd,up,right}=basisFor(s.yaw,s.pitch);
+      const t0=performance.now();
+      const scan=takeScan(s.pos,fwd,up,right,s.lens,s.resolution);
+      scan.scanTime=performance.now()-t0;
+      pushSensorScan(s,scan);
+    }
+  }
+  if(currentMode==='normal') setMode('latest');
+  else refreshCloud();
+  const a=getActiveSensor();
+  const last=a.memoryScans[a.memoryScans.length-1];
+  updateStats(last||null, last?(last.scanTime||0):0);
+  flash();
+}
+function flash(){ const f=document.getElementById('scanflash'); f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),180); }
+
+/* ============================================================
+   ROLLING SCAN
+   ============================================================ */
+let rollingState = null;
+// { sensor, grid, w, h, lens, res, dir, col/row, done, progress }
+
+function startRollingScan(sensor){
+  const res=RES[sensor.resolution];
+  const style=sensor.scanStyle;
+  let dir='v';
+  if(style==='rolling_h') dir='h';
+  else if(style==='rolling_c') dir='c';
+  rollingState={
+    sensor, grid:new Array(res.w*res.h), w:res.w, h:res.h,
+    lens:sensor.lens, res:sensor.resolution, dir,
+    idx:0, done:false, progress:0,
+    pose:basisFor(sensor.yaw,sensor.pitch), pos:sensor.pos.slice(),
+    t0:performance.now()
+  };
+  flash();
+}
+
+function finishSensorScan(sensor, grid, w, h, dt){
+  computeEdgeScores(grid,w,h);
+  const scan={ grid, w, h, lens:rollingState.lens, res:rollingState.res, time:Date.now(), scanTime:dt };
+  pushSensorScan(sensor, scan);
+  finalizeAfterScan(sensor, scan, dt);
+}
+
+function stepRolling(){
+  const rs=rollingState;
+  const {w,h,grid,pose,pos,lens}=rs;
+  const {fwd,up,right}=pose;
+  // number of columns/rows per frame
+  if(rs.dir==='h'){
+    const N=Math.max(1,Math.floor(h/30));
+    for(let n=0;n<N && rs.idx<h;n++,rs.idx++){
+      const j=rs.idx;
+      for(let i=0;i<w;i++){ const {ro,rd}=pixelRay(i,j,w,h,pos,fwd,up,right,lens); castPixel(grid,i,j,w,ro,rd); }
+    }
+    rs.progress=rs.idx/h;
+    if(rs.idx>=h) rs.done=true;
+  } else if(rs.dir==='c'){
+    const half=Math.ceil(w/2);
+    const N=Math.max(1,Math.floor(w/30));
+    for(let n=0;n<N && rs.idx<half;n++,rs.idx++){
+      const off=rs.idx;
+      const cL=Math.floor(w/2)-off, cR=Math.floor(w/2)+off;
+      for(const i of [cL,cR]){
+        if(i<0||i>=w) continue;
+        for(let j=0;j<h;j++){ const {ro,rd}=pixelRay(i,j,w,h,pos,fwd,up,right,lens); castPixel(grid,i,j,w,ro,rd); }
+      }
+    }
+    rs.progress=rs.idx/half;
+    if(rs.idx>=half) rs.done=true;
+  } else {
+    const N=Math.max(1,Math.floor(w/30));
+    for(let n=0;n<N && rs.idx<w;n++,rs.idx++){
+      const i=rs.idx;
+      for(let j=0;j<h;j++){ const {ro,rd}=pixelRay(i,j,w,h,pos,fwd,up,right,lens); castPixel(grid,i,j,w,ro,rd); }
+    }
+    rs.progress=rs.idx/w;
+    if(rs.idx>=w) rs.done=true;
+  }
+  // partial cloud preview every few steps
+  if(currentMode!=='normal' && viewSource==='selected' && rs.sensor.id===activeSensorId){
+    const mode=(currentMode==='memory'||currentMode==='hybrid')?'latest':currentMode;
+    renderPointCloud(scanToCloud({grid,w,h},mode,0.8));
+  }
+  if(rs.done){
+    const dt=performance.now()-rs.t0;
+    const sensor=rs.sensor, gg=rs.grid;
+    rollingState=null;
+    finishSensorScan(sensor, gg, w, h, dt);
+  }
+}
+
+function updateStats(scan,dt){
+  const s=getActiveSensor();
+  if(!scan){
+    const networkScans=SENSORS.reduce((a,x)=>a+x.scanHistory.length,0);
+    document.getElementById('stats').innerHTML=
+      `sensor:  <b>${s.name}</b> (${s.id})<br>`+
+      `lens:    <b>${s.lens}</b> · res ${RES[s.resolution].w}×${RES[s.resolution].h}<br>`+
+      `<span style="color:#56607a">no scan in this sensor's memory yet</span><br>`+
+      `network: <b>${SENSORS.length}</b> sensors · <b>${networkScans}</b> total scans`;
+    return;
+  }
+  const g=scan.grid; let hits=0,split=0,edge=0,occ=0; const matCount={}; const depths=[];
+  for(const p of g){ if(!p){ matCount['sky']=(matCount['sky']||0)+1; continue; }
+    hits++; depths.push(p.depth);
+    if(p.beamEvidence.hasSplit)split++; if(p.beamEvidence.edgeScore>0.4)edge++;
+    if(p.beamEvidence.isOccluder)occ++;
+    matCount[p.matId]=(matCount[p.matId]||0)+1; }
+  const total=scan.w*scan.h;
+  const coverage=(hits/total*100).toFixed(1);
+  depths.sort((a,b)=>a-b);
+  const pct=q=>depths.length?depths[Math.floor(q*(depths.length-1))].toFixed(1):'—';
+  const span=depths.length?(depths[depths.length-1]-depths[0]).toFixed(1):'—';
+  const topMat=Object.entries(matCount).filter(([m])=>m!=='sky').sort((a,b)=>b[1]-a[1]).slice(0,3)
+    .map(([m,n])=>m+':'+n).join('  ');
+  const networkScans=SENSORS.reduce((a,x)=>a+x.scanHistory.length,0);
+  document.getElementById('stats').innerHTML=
+    `sensor:  <b>${s.name}</b> (${s.id})<br>`+
+    `lens:    <b>${scan.lens}</b> · res ${scan.w}×${scan.h}<br>`+
+    `coverage <b>${coverage}%</b> · sky <b>${matCount['sky']||0}</b><br>`+
+    `depth p05 <b>${pct(0.05)}</b> · p50 <b>${pct(0.5)}</b> · p95 <b>${pct(0.95)}</b><br>`+
+    `span <b>${span}</b> m<br>`+
+    `edges <b>${edge}</b> · splits <b>${split}</b> · occl <b>${occ}</b><br>`+
+    `scan time <b>${dt.toFixed(1)}</b> ms · mem <b>${s.memoryScans.length}/4</b><br>`+
+    `network: <b>${SENSORS.length}</b> sensors · <b>${networkScans}</b> total scans<br>`+
+    `<span style="color:#56607a">mats: ${topMat}</span>`;
+  drawContactSheet(scan);
+}
+
+/* ============================================================
+   CONTACT SHEET
+   ============================================================ */
+function drawContactSheet(scan){
+  const csCanvas=document.getElementById('contact-sheet');
+  const csLabel=document.getElementById('cs-label');
+  const {grid,w,h}=scan;
+  const panels=4, gap=1;
+  const pw=w, ph=h;
+  csCanvas.width=(pw+gap)*panels-gap; csCanvas.height=ph+14;
+  csCanvas.style.display='block'; csLabel.style.display='block';
+  const ctx=csCanvas.getContext('2d');
+  ctx.fillStyle='#080810'; ctx.fillRect(0,0,csCanvas.width,csCanvas.height);
+
+  const titles=['Depth','Beam','Mat','Edge'];
+  const maxD = grid.reduce((m,p)=>p?Math.max(m,p.depth):m, 1);
+
+  function drawPanel(idx, colorFn){
+    const ox=idx*(pw+gap);
+    for(let j=0;j<ph;j++){
+      for(let i=0;i<pw;i++){
+        const p=grid[j*w+i];
+        const c=colorFn(p);
+        ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;
+        ctx.fillRect(ox+i,j,1,1);
+      }
+    }
+    ctx.fillStyle='#5a6070'; ctx.font='7px sans-serif';
+    ctx.fillText(titles[idx], ox+1, ph+10);
+  }
+
+  drawPanel(0, p=>{ if(!p) return [10,10,18];
+    const t=Math.min(1,p.depth/maxD); return [(1-t)*255|0,(1-t)*220|0,(1-t*0.7)*255|0]; });
+
+  drawPanel(1, p=>{ if(!p) return [10,10,18];
+    if(p.beamEvidence.hasSplit||p.beamEvidence.isOccluder) return [240,50,40];
+    if(p.beamEvidence.edgeScore>0.4) return [250,155,40];
+    return [65,220,100]; });
+
+  const MC=MAT_COLORS;
+  drawPanel(2, p=>{ if(!p) return [10,10,18];
+    const c=MC[p.matId]||[0.5,0.5,0.5]; return [c[0]*255|0,c[1]*255|0,c[2]*255|0]; });
+
+  drawPanel(3, p=>{ if(!p) return [10,10,18];
+    const e=p.beamEvidence.edgeScore; return [e*255|0,e*180|0,10]; });
+}
+
+/* ============================================================
+   LEGEND
+   ============================================================ */
+function sw(c){ return `<span class="sw" style="background:rgb(${(c[0]*255)|0},${(c[1]*255)|0},${(c[2]*255)|0})"></span>`; }
+function updateLegend(){
+  const el=document.getElementById('legend'); let h='';
+  if(currentMode==='depth') h=`${sw([1,1,1])}near &nbsp; ${sw([0.1,0.1,0.3])}far`;
+  else if(currentMode==='beam') h=`${sw([0.95,0.2,0.15])}front/occluder &nbsp;${sw([0.31,0.82,1])}back return<br>${sw([0.98,0.6,0.15])}edge &nbsp;${sw([0.25,0.85,0.4])}solid`;
+  else if(currentMode==='latest'||currentMode==='memory'||currentMode==='hybrid'||currentMode==='matedge'){
+    h=Object.entries(MAT_COLORS).map(([m,c])=>sw(c)+m).join('&nbsp; ');
+    if(currentMode==='matedge') h+='<br><span style="color:#56607a">brighter = edgeScore &gt; 0.4 (material + boundaries)</span>';
+    if(currentMode==='memory') h+='<br><span style="color:#56607a">newer scans brighter</span>';
+  } else h='<span style="color:#56607a">scene render — press Scan</span>';
+  if(viewSource==='allSensors') h+='<br><span style="color:#56607a">All Sensors: points tinted per sensor</span>';
+  el.innerHTML=h;
+}
+
+/* ============================================================
+   REPLAY CONTROLS
+   ============================================================ */
+function updateReplayUI(){
+  const tl=document.getElementById('replay-timeline');
+  const n=globalHistory.length;
+  const cur = (replayActive && replayIndex>=0)? (replayIndex+1) : n;
+  tl.textContent=`${n? cur:0} / ${n}`;
+}
+function replayShow(idx){
+  if(globalHistory.length===0) return;
+  replayIndex=Math.max(0,Math.min(globalHistory.length-1,idx));
+  replayActive=true;
+  const rec=globalHistory[replayIndex];
+  // move camera to that sensor for context
+  const s=getSensor(rec.sensorId);
+  if(s){ camPos=s.pos.slice(); yaw=s.yaw; pitch=s.pitch; syncCamera(); }
+  if(currentMode==='normal') setMode('latest');
+  else refreshCloud();
+  updateStats(rec.scan, rec.scan.scanTime||0);
+  updateReplayUI();
+  showGuideMsgShort(`Replay ${replayIndex+1}/${globalHistory.length}: ${rec.sensorName}`);
+}
+function replayPrev(){ if(globalHistory.length===0)return; replayShow((replayActive?replayIndex:globalHistory.length-1)-1); }
+function replayNext(){ if(globalHistory.length===0)return; replayShow((replayActive?replayIndex:-1)+1); }
+function replayTogglePlay(){
+  if(replayTimer){ stopReplayPlay(); return; }
+  if(globalHistory.length===0) return;
+  replayActive=true;
+  if(replayIndex<0) replayIndex=0;
+  document.getElementById('replay-play').textContent='⏸ Pause';
+  document.getElementById('replay-play').classList.add('active');
+  replayTimer=setInterval(()=>{
+    let next=replayIndex+1;
+    if(next>=globalHistory.length) next=0;
+    replayShow(next);
+  },1500);
+}
+function stopReplayPlay(){
+  if(replayTimer){ clearInterval(replayTimer); replayTimer=null; }
+  document.getElementById('replay-play').textContent='▶ Play';
+  document.getElementById('replay-play').classList.remove('active');
+}
+
+/* ============================================================
+   GUIDED DEMO + GUIDE MESSAGES
+   ============================================================ */
+function showGuideMsg(text){
+  const el=document.getElementById('guide-msg');
+  el.textContent=text; el.classList.add('show');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2500);
+}
+function showGuideMsgShort(text){
+  const el=document.getElementById('guide-msg');
+  el.textContent=text; el.classList.add('show');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),1200);
+}
+
+let demoRunning=false;
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+async function startGuidedDemo(){
+  if(demoRunning) return;
+  demoRunning=true;
+  replayActive=false; stopReplayPlay();
+  const steps=[
+    ()=>{ setActiveSensor('secA'); showGuideMsg('Security Cam A — left side view'); },
+    ()=>{ scanSensor(getActiveSensor()); },
+    ()=>{ setActiveSensor('secB'); showGuideMsg('Security Cam B — right side view'); },
+    ()=>{ scanSensor(getActiveSensor()); },
+    ()=>{ setActiveSensor('drone'); showGuideMsg('Drone Eye — overhead scan (rolling)'); getActiveSensor().scanStyle='rolling_v'; document.getElementById('style-select').value='rolling_v'; },
+    ()=>{ scanSensor(getActiveSensor()); },
+    ()=>{ setActiveSensor('gate'); showGuideMsg('Gate Scanner — beam evidence at occluder'); setMode('beam'); },
+    ()=>{ scanSensor(getActiveSensor()); },
+    ()=>{ viewSource='allSensors'; setMode('memory'); updateSensorUI(); refreshCloud(); showGuideMsg('All Sensors — combined evidence network'); },
+  ];
+  for(const step of steps){
+    step();
+    await sleep(2000);
+    // wait out any in-progress rolling scan
+    let guard=0;
+    while(rollingState && !rollingState.done && guard<200){ await sleep(50); guard++; }
+  }
+  demoRunning=false;
+}
+
+/* ============================================================
+   UI WIRING
+   ============================================================ */
+const modeWrap=document.getElementById('mode-buttons');
+MODES.forEach(m=>{ const b=document.createElement('button'); b.textContent=m.label; b.dataset.mode=m.id;
+  b.onclick=()=>{ replayActive=false; setMode(m.id); }; modeWrap.appendChild(b); });
+
+const camWrap=document.getElementById('cam-grid');
+Object.keys(CAM_GRID).forEach(k=>{ const b=document.createElement('button'); b.textContent=k; b.dataset.cam=k;
+  b.onclick=()=>gotoCam(k); camWrap.appendChild(b); });
+
+const sensorWrap=document.getElementById('sensor-list');
+SENSORS.forEach(s=>{
+  const b=document.createElement('button'); b.className='sensor-btn'; b.dataset.sensor=s.id;
+  const col=MARKER_COLORS[s.id];
+  b.innerHTML=`<span class="dot" style="background:rgb(${(col[0]*255)|0},${(col[1]*255)|0},${(col[2]*255)|0})"></span>${s.name}`;
+  b.onclick=()=>{ replayActive=false; setActiveSensor(s.id); };
+  sensorWrap.appendChild(b);
+});
+
+document.getElementById('scan-sel-btn').onclick=doScanSelected;
+document.getElementById('scan-all-btn').onclick=doScanAll;
+document.getElementById('allsensors-btn').onclick=()=>{
+  replayActive=false;
+  viewSource='allSensors';
+  updateSensorUI();
+  if(currentMode==='normal') setMode('memory'); else refreshCloud();
+  updateStats(null,0); updateLegend();
+};
+document.getElementById('clearmem-btn').onclick=()=>{
+  const s=getActiveSensor(); s.memoryScans=[]; s.scanHistory=[];
+  document.getElementById('stats').textContent=s.name+' memory cleared';
+  refreshCloud();
+};
+document.getElementById('clearall-btn').onclick=()=>{
+  for(const s of SENSORS){ s.memoryScans=[]; s.scanHistory=[]; }
+  globalHistory=[]; replayIndex=-1; replayActive=false; stopReplayPlay();
+  document.getElementById('stats').textContent='all sensor memory cleared';
+  updateReplayUI(); refreshCloud();
+};
+document.getElementById('demo-btn').onclick=startGuidedDemo;
+
+document.getElementById('replay-prev').onclick=replayPrev;
+document.getElementById('replay-next').onclick=replayNext;
+document.getElementById('replay-play').onclick=replayTogglePlay;
+
+document.getElementById('lens-select').onchange=(e)=>{ getActiveSensor().lens=e.target.value; syncCamera(); };
+document.getElementById('res-select').onchange=(e)=>{ getActiveSensor().resolution=e.target.value; };
+document.getElementById('style-select').onchange=(e)=>{ getActiveSensor().scanStyle=e.target.value; };
+document.getElementById('map-toggle').onclick=()=>{ const n=document.getElementById('map-note');
+  const open=n.style.display==='block'; n.style.display=open?'none':'block';
+  document.getElementById('map-toggle').textContent=(open?'▸':'▾')+' Python → Demo mapping'; };
+
+document.getElementById('autoscan').onchange=(e)=>{
+  const s=getActiveSensor();
+  s.autoScan=e.target.checked;
+  if(e.target.checked){ s.autoInterval=setInterval(()=>{ if(activeSensorId===s.id) doScanSelected(); else scanSensor(s); },1500); }
+  else { clearInterval(s.autoInterval); s.autoInterval=null; }
+};
+
+/* ---------- Keyboard movement ---------- */
+const keys={};
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='SELECT') return;
+  keys[e.code]=true;
+  if(e.code==='Space'){ e.preventDefault(); doScanSelected(); }
+  if(e.code==='KeyR'){ const s=getActiveSensor(); s.memoryScans=[]; s.scanHistory=[];
+    document.getElementById('stats').textContent=s.name+' memory reset'; refreshCloud(); }
+  if(e.code==='KeyP'){ screenshot(); }
+});
+window.addEventListener('keyup',e=>{ keys[e.code]=false; });
+
+/* ---------- Mouse look (drag) ---------- */
+let dragging=false,lastX=0,lastY=0;
+canvas.addEventListener('mousedown',e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; });
+window.addEventListener('mouseup',()=>dragging=false);
+window.addEventListener('mousemove',e=>{
+  if(!dragging) return;
+  const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
+  yaw+=dx*0.005; pitch-=dy*0.005;
+  pitch=Math.max(-1.5,Math.min(1.5,pitch));
+  const s=getActiveSensor(); s.yaw=yaw; s.pitch=pitch;
+  syncCamera();
+});
+
+/* ---------- Screenshot (composites both canvases) ---------- */
+function screenshot(){
+  app.render();
+  requestAnimationFrame(()=>{
+    try{
+      const out=document.createElement('canvas');
+      out.width=canvas.width; out.height=canvas.height;
+      const ctx=out.getContext('2d');
+      ctx.drawImage(canvas,0,0,out.width,out.height);
+      ctx.drawImage(scanCanvas,0,0,out.width,out.height);
+      const a=document.createElement('a'); a.href=out.toDataURL('image/png');
+      a.download='lidar_scan_'+Date.now()+'.png'; a.click();
+    }catch(err){ console.warn('screenshot failed',err); }
+  });
+}
+
+/* ---------- Per-frame movement + rolling scan ---------- */
+app.on('update', dt=>{
+  // rolling scan progression
+  if(rollingState && !rollingState.done){
+    stepRolling();
+  }
+
+  const {fwd,right}=getBasis();
+  const spd=6*dt; let moved=false;
+  const step=(v,s)=>{ camPos[0]+=v[0]*s; camPos[1]+=v[1]*s; camPos[2]+=v[2]*s; moved=true; };
+  if(keys['KeyW']||keys['ArrowUp']) step(fwd,spd);
+  if(keys['KeyS']||keys['ArrowDown']) step(fwd,-spd);
+  if(keys['KeyA']||keys['ArrowLeft']) step(right,-spd);
+  if(keys['KeyD']||keys['ArrowRight']) step(right,spd);
+  if(keys['KeyQ']) { camPos[1]-=spd; moved=true; }
+  if(keys['KeyE']) { camPos[1]+=spd; moved=true; }
+  if(moved){
+    const s=getActiveSensor(); s.pos=camPos.slice(); s.yaw=yaw; s.pitch=pitch;
+    if(s.markerEntity) s.markerEntity.setPosition(camPos[0],camPos[1],camPos[2]);
+    syncCamera();
+  }
+});
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+app.start();
+createSensorMarkers();
+setActiveSensor('player');
+gotoCam('A2');
+setMode('normal');
+updateLegend();
+updateReplayUI();
+// initial scan so there's something to show
+setTimeout(()=>{ doScanSelected(); setMode('latest'); }, 250);
+</script>
+</body>
+</html>
