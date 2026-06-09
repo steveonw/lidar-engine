@@ -168,7 +168,7 @@ function rayBoxIntersect(ro, rd, bmin, bmax) {
     if (t2<tmax) tmax=t2;
     if (tmin>tmax) return null;
   }
-  const t = tmin > 1e-4 ? tmin : (tmax > 1e-4 ? tmax : null);
+  const t = tmin > 0.15 ? tmin : (tmax > 0.15 ? tmax : null);
   if (t===null) return null;
   const n=[0,0,0];
   // recompute axis for the chosen t
@@ -190,8 +190,8 @@ function raySphereIntersect(ro, rd, c, r) {
   if (disc<0) return null;
   const s=Math.sqrt(disc);
   let t = -b-s;
-  if (t<=1e-4) t=-b+s;
-  if (t<=1e-4) return null;
+  if (t<=0.15) t=-b+s;
+  if (t<=0.15) return null;
   const hx=ro[0]+rd[0]*t, hy=ro[1]+rd[1]*t, hz=ro[2]+rd[2]*t;
   const n=[(hx-c[0])/r,(hy-c[1])/r,(hz-c[2])/r];
   return { t, normal:n };
@@ -250,7 +250,7 @@ function takeScan(camPos, fwd, up, right, lensMode, resolution){
       } else if (lensMode==='fisheye'){
         const r = Math.hypot(px*aspect, py);
         const maxR = aspect;
-        const theta = (r/maxR) * (fovDeg*Math.PI/180)/2 * 2; // angle from fwd
+        const theta = Math.min(1,r/maxR) * (fovDeg*Math.PI/180)/2; // angle from fwd
         const phi = Math.atan2(py, px*aspect);
         const sinT=Math.sin(theta), cosT=Math.cos(theta);
         const dirX = sinT*Math.cos(phi), dirY = sinT*Math.sin(phi);
@@ -385,7 +385,6 @@ function renderPointCloud(points){
 }
 
 function draw2DCloud(){
-  resizeScanCanvas();
   scanCtx.clearRect(0, 0, scanCanvas.width, scanCanvas.height);
   const pts = _pendingCloudPoints;
   if(!pts || pts.length === 0) return;
@@ -475,7 +474,7 @@ function setMode(m){
 const CAM_GRID={
   A1:[-6,1.5,6],A2:[0,1.5,8],A3:[6,1.5,6],
   B1:[-8,1.5,0],B2:[0,2.5,0],B3:[8,1.5,0],
-  C1:[3,6,6],C2:[0,0.5,5],C3:[2,1.5,3]
+  C1:[3,6,6],C2:[0,0.5,5],C3:[4,1.5,5]
 };
 let yaw=0,pitch=0;
 let camPos=[0,1.5,8];
@@ -486,11 +485,12 @@ function lookAtCenter(){
   yaw=Math.atan2(dir[0],-dir[2]); // 0 facing -z
   pitch=Math.asin(Math.max(-1,Math.min(1,dir[1])));
 }
+function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
 function getBasis(){
   const fwd=normalize([Math.sin(yaw)*Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw)*Math.cos(pitch)]);
   const worldUp=[0,1,0];
-  let right=normalize([fwd[2]*worldUp[1]-fwd[1]*worldUp[2], fwd[0]*worldUp[2]-fwd[2]*worldUp[0], fwd[1]*worldUp[0]-fwd[0]*worldUp[1]]);
-  let up=[ right[1]*fwd[2]-right[2]*fwd[1], right[2]*fwd[0]-right[0]*fwd[2], right[0]*fwd[1]-right[1]*fwd[0] ];
+  const right=normalize(cross(fwd,worldUp));
+  const up=normalize(cross(right,fwd));
   return {fwd,right,up};
 }
 function syncCamera(){
@@ -601,11 +601,16 @@ window.addEventListener('mousemove',e=>{
 
 /* ---------- Screenshot ---------- */
 function screenshot(){
-  app.render(); // ensure fresh frame
+  app.render();
   requestAnimationFrame(()=>{
     try{
-      const url=canvas.toDataURL('image/png');
-      const a=document.createElement('a'); a.href=url; a.download='lidar_scan_'+Date.now()+'.png'; a.click();
+      const out=document.createElement('canvas');
+      out.width=canvas.width; out.height=canvas.height;
+      const ctx=out.getContext('2d');
+      ctx.drawImage(canvas,0,0,out.width,out.height);
+      ctx.drawImage(scanCanvas,0,0,out.width,out.height);
+      const a=document.createElement('a'); a.href=out.toDataURL('image/png');
+      a.download='lidar_scan_'+Date.now()+'.png'; a.click();
     }catch(err){ console.warn('screenshot failed',err); }
   });
 }
