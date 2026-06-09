@@ -68,10 +68,12 @@
   .legend { font-size: 10px; line-height: 1.7; margin-top: 6px; color: #9aa6bd; }
   .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
   ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 4px; }
+  #scan-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: block; }
 </style>
 </head>
 <body>
 <canvas id="app-canvas"></canvas>
+<canvas id="scan-canvas"></canvas>
 
 <div id="left-panel" class="panel">
   <h1>LiDAR / Beam Evidence — Tier 2 Demo</h1>
@@ -366,27 +368,45 @@ function createVisualSphere(app, prim){
 const sceneEntities=[];
 for(const p of SCENE){ sceneEntities.push(p.type==='box'?createVisualBox(app,p):createVisualSphere(app,p)); }
 
-/* ---------- Point cloud mesh ---------- */
-let pcEntity=null;
-function buildPointMesh(app, positions, colors){
-  const mesh=new pc.Mesh(app.graphicsDevice);
-  mesh.setPositions(positions);
-  mesh.setColors32(colors);
-  mesh.update(pc.PRIMITIVE_POINTS);
-  return mesh;
+/* ---------- 2D overlay point cloud ---------- */
+const scanCanvas = document.getElementById('scan-canvas');
+const scanCtx = scanCanvas.getContext('2d');
+function resizeScanCanvas(){
+  scanCanvas.width = window.innerWidth;
+  scanCanvas.height = window.innerHeight;
 }
-function renderPointCloud(positions, colors){
-  if(pcEntity){ pcEntity.destroy(); pcEntity=null; }
-  if(positions.length===0) return;
-  const mesh=buildPointMesh(app, positions, colors);
-  const mat=new pc.StandardMaterial();
-  mat.useLighting=false; mat.emissiveVertexColor=true; mat.diffuse=new pc.Color(0,0,0);
-  mat.emissive=new pc.Color(1,1,1); mat.update();
-  const mi=new pc.MeshInstance(mesh, mat);
-  pcEntity=new pc.Entity('pointcloud');
-  pcEntity.addComponent('render',{ meshInstances:[mi] });
-  app.root.addChild(pcEntity);
+resizeScanCanvas();
+window.addEventListener('resize', resizeScanCanvas);
+
+let _pendingCloudPoints = null;
+
+function renderPointCloud(points){
+  _pendingCloudPoints = points;
 }
+
+function draw2DCloud(){
+  resizeScanCanvas();
+  scanCtx.clearRect(0, 0, scanCanvas.width, scanCanvas.height);
+  const pts = _pendingCloudPoints;
+  if(!pts || pts.length === 0) return;
+  const w = scanCanvas.width, h = scanCanvas.height;
+  const cam = camEntity.camera;
+  const wp = new pc.Vec3();
+  const sp = new pc.Vec3();
+  for(const pt of pts){
+    wp.set(pt.pos[0], pt.pos[1], pt.pos[2]);
+    cam.worldToScreen(wp, sp);
+    if(sp.z <= 0) continue;
+    const sx = sp.x, sy = sp.y;
+    if(sx < -2 || sy < -2 || sx > w+2 || sy > h+2) continue;
+    scanCtx.fillStyle = `rgba(${pt.r},${pt.g},${pt.b},${pt.a/255})`;
+    scanCtx.fillRect(sx-1, sy-1, 3, 3);
+  }
+}
+
+// Hook into PlayCanvas render loop to keep the 2D overlay in sync
+app.on('postrender', draw2DCloud);
+
 function setSceneVisible(v){ for(const e of sceneEntities) e.enabled=v; }
 
 /* ============================================================
@@ -396,16 +416,14 @@ function depthColor(d){ const t=Math.min(1,d/16); return [(1-t),(1-t)*0.9+0.1,1-
 function matColor(m){ return MAT_COLORS[m]||[0.6,0.6,0.6]; }
 
 function scanToCloud(scan, mode, ageFactor){
-  const pos=[], col=[];
+  const pts=[];
   const af = ageFactor===undefined?1:ageFactor;
   const g=scan.grid;
   for(let k=0;k<g.length;k++){
     const p=g[k]; if(!p) continue;
-    pos.push(p.pos[0],p.pos[1],p.pos[2]);
     let c=[1,1,1];
     if(mode==='depth'){ c=depthColor(p.depth); }
-    else if(mode==='latest'){ c=matColor(p.matId); }
-    else if(mode==='memory'||mode==='hybrid'){ c=matColor(p.matId); }
+    else if(mode==='latest'||mode==='memory'||mode==='hybrid'){ c=matColor(p.matId); }
     else if(mode==='beam'){
       if(p.beamEvidence.hasSplit||p.beamEvidence.isOccluder) c=[0.95,0.2,0.2];
       else if(p.beamEvidence.edgeScore>0.4) c=[0.98,0.6,0.15];
@@ -414,9 +432,9 @@ function scanToCloud(scan, mode, ageFactor){
       c=matColor(p.matId).slice();
       if(p.beamEvidence.edgeScore>0.4){ c=[Math.min(1,c[0]*1.6+0.2),Math.min(1,c[1]*1.6+0.2),Math.min(1,c[2]*1.6+0.2)]; }
     }
-    col.push((c[0]*af*255)|0,(c[1]*af*255)|0,(c[2]*af*255)|0,255);
+    pts.push({ pos:p.pos, r:(c[0]*af*255)|0, g:(c[1]*af*255)|0, b:(c[2]*af*255)|0, a:255 });
   }
-  return { pos, col };
+  return pts;
 }
 
 /* ============================================================
@@ -430,22 +448,20 @@ const MODES=[
 ];
 
 function refreshCloud(){
-  if(currentMode==='normal'){ renderPointCloud([],new Uint8Array(0)); setSceneVisible(true); return; }
+  if(currentMode==='normal'){ _pendingCloudPoints=null; scanCtx.clearRect(0,0,scanCanvas.width,scanCanvas.height); setSceneVisible(true); return; }
   setSceneVisible(currentMode==='hybrid'||currentMode==='normal');
-  const allPos=[], allCol=[];
+  let allPts=[];
   if(currentMode==='memory'||currentMode==='hybrid'){
     const n=memoryScans.length;
     memoryScans.forEach((s,idx)=>{
-      const age=0.35+0.65*((idx+1)/n); // newest brightest
-      const {pos,col}=scanToCloud(s,currentMode,age);
-      for(const v of pos)allPos.push(v); for(const v of col)allCol.push(v);
+      const age=0.35+0.65*((idx+1)/n);
+      allPts=allPts.concat(scanToCloud(s,currentMode,age));
     });
   } else {
-    const s=memoryScans[memoryScans.length-1]; if(!s){ renderPointCloud([],new Uint8Array(0)); return; }
-    const {pos,col}=scanToCloud(s,currentMode,1);
-    for(const v of pos)allPos.push(v); for(const v of col)allCol.push(v);
+    const s=memoryScans[memoryScans.length-1]; if(!s){ renderPointCloud([]); return; }
+    allPts=scanToCloud(s,currentMode,1);
   }
-  renderPointCloud(new Float32Array(allPos), new Uint8Array(allCol));
+  renderPointCloud(allPts);
 }
 function setMode(m){
   currentMode=m;
