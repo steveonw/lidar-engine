@@ -1,0 +1,250 @@
+{
+  "scene": "cabin_demo",
+  "preset": "compact_diagnostic",
+  "description": "Readable compact diagnostic sheet for normal scene inspection.",
+  "width": 480,
+  "height": 320,
+  "lens": "pinhole",
+  "camera_position": [
+    11.030865786510141,
+    1.5399999999999998,
+    -11.030865786510141
+  ],
+  "camera_target": [
+    0.0,
+    1.3707800000000003,
+    0.0
+  ],
+  "sampling_mode": "halton",
+  "rays_per_pixel": 8,
+  "stacked_bursts": 4,
+  "n_samples_per_burst": 1228800,
+  "wave": true,
+  "L_ref": 5.939273159211339,
+  "edge_threshold_used": 0.08,
+  "edge_score_p90": 0.038442542604129604,
+  "edge_score_p95": 0.04376349689785246,
+  "edge_score_p99": 0.5115516047982734,
+  "edge_score_raw_p95": 0.8242760810588508,
+  "edge_score_geom_p95": 0.04376349689785246,
+  "edge_confidence_max": 1.0,
+  "carrier_mode": "ensemble",
+  "carrier_angles": null,
+  "edge_score_mode": "geom_fused",
+  "edge_fusion_mode": "depth_grad_mul",
+  "edge_anti_min": 0.08,
+  "edge_anti_max": 0.95,
+  "adaptive_edge_percentile": 92.0,
+  "classification_style": "indoor_sparse",
+  "classifier_kwargs": {
+    "edge_anti_min": 0.08,
+    "edge_anti_max": 0.95,
+    "adaptive_edge_percentile": 92.0,
+    "material_labels": false,
+    "attenuation_per_meter": 0.0
+  },
+  "warnings": [],
+  "auto_frame": {
+    "enabled": true,
+    "selected": {
+      "score": 1.4077433669177815,
+      "coverage": 0.5021075873143316,
+      "depth_span_p05_p95": 13.271608685772232,
+      "unique_pieces": 50,
+      "index": 64,
+      "position": [
+        11.030865786510141,
+        1.5399999999999998,
+        -11.030865786510141
+      ],
+      "target": [
+        0.0,
+        1.3707800000000003,
+        0.0
+      ],
+      "fov_deg": 60.0
+    },
+    "passed": true,
+    "min_coverage": 0.35,
+    "min_depth_span": 3.0,
+    "pilot_rays": 30000,
+    "n_candidates": 163,
+    "top_trials": [
+      {
+        "score": 1.4077433669177815,
+        "coverage": 0.5021075873143316,
+        "depth_span_p05_p95": 13.271608685772232,
+        "unique_pieces": 50,
+        "index": 64,
+        "position": [
+          11.030865786510141,
+          1.5399999999999998,
+          -11.030865786510141
+        ],
+        "target": [
+          0.0,
+          1.3707800000000003,
+          0.0
+        ],
+        "fov_deg": 60.0
+      },
+      {
+        "score": 1.39330886241976,
+        "coverage": 0.4948146661314064,
+        "depth_span_p05_p95": 13.628415298448498,
+        "unique_pieces": 47,
+        "index": 73,
+        "position": [
+          -11.030865786510141,
+          1.5399999999999998,
+          -11.030865786510141
+        ],
+        "target": [
+          0.0,
+          1.3707800000000003,
+          0.0
+        ],
+        "fov_deg": 60.0
+      },
+      {
+        "score": 1.3930503427527563,
+        "coverage": 0.4987287568580222,
+        "depth_span_p05_p95": 13.377622635403458,
+        "unique_pieces": 35,
+        "index": 55,
+        "position": [
+          -11.030865786510141,
+          1.5399999999999998,
+          11.030865786510141
+        ],
+        "target": [
+          0.0,
+          1.3707800000000003,
+          0.0
+        ],
+        "fov_deg": 60.0
+      },
+      {
+        "score": 1.3915550138932002,
+        "coverage": 0.4967549846112672,
+        "depth_span_p05_p95": 13.619863685869571,
+        "unique_pieces": 38,
+        "index": 1,
+        "position": [
+          10.46624785391837,
+          1.5399999999999998,
+          11.56795815433083
+        ],
+        "target": [
+          0.0,
+          1.3707800000000003,
+          0.0
+        ],
+        "fov_deg": 60.0
+      },
+      {
+        "score": 1.3894946852428636,
+        "coverage": 0.4967215308443731,
+        "depth_span_p05_p95": 13.63536561578951,
+        "unique_pieces": 35,
+        "index": 46,
+        "position": [
+          11.030865786510141,
+          1.5399999999999998,
+          11.030865786510141
+        ],
+        "target": [
+          0.0,
+          1.3707800000000003,
+          0.0
+        ],
+        "fov_deg": 60.0
+      },
+      {
+        "score": 1.3858550952175221,
+        "coverage": 0.49003077746554263,
+        "depth_span_p05_p95": 13.290993377410084,
+        "unique_pieces": 49,
+        "index": 65,
+        "position": [
+          11.030865786510141,
+          1.5399999999999998,
+          -11.030865786510141
+        ],
+        "target": [
+          0.0,
+          1.3707800000000003,
+          0.0
+        ],
+        "fov_deg": 72.0
+      },
+      {
+        "score": 1.3763602282892715,
+        "coverage": 0.48524688879967887,
+        "depth_span_p05_p95": 13.530592505474345,
+        "unique_pieces": 47,
+        "index": 74,
+        "position": [
+          -11.030865786510141,
+          1.5399999999999998,
+          -11.030865786510141
+        ],
+        "target": [
+          0.0,
+          1.3707800000000003,
+          0.0
+        ],
+        "fov_deg": 72.0
+      },
+      {
+        "score": 1.3737312702823392,
+        "coverage": 0.4878228288505286,
+        "depth_span_p05_p95": 13.303655283223861,
+        "unique_pieces": 35,
+        "index": 56,
+        "position": [
+          -11.030865786510141,
+          1.5399999999999998,
+          11.030865786510141
+        ],
+        "target": [
+          0.0,
+          1.3707800000000003,
+          0.0
+        ],
+        "fov_deg": 72.0
+      }
+    ]
+  },
+  "depth_stats": {
+    "coverage": 0.502108567403722,
+    "hit_rays": 616632,
+    "total_rays": 1228085,
+    "depth_p05": 3.336567103440509,
+    "depth_p50": 5.938614673992682,
+    "depth_p95": 16.640511364260952,
+    "depth_span_p05_p95": 13.303944260820444
+  },
+  "classification_counts": {
+    "partial_occluder": 419,
+    "geom_edge": 2777,
+    "foliage": 3058,
+    "metal_or_glass": 0,
+    "stone_hard": 0,
+    "soft_material": 0,
+    "wood_material": 0,
+    "hard_smooth": 1727,
+    "solid_surface": 62364,
+    "optical_only": 0,
+    "acoustic_only": 20,
+    "uncertain": 9335,
+    "sky": 73900
+  },
+  "autoframe_runtime_seconds": 17.245,
+  "render_runtime_seconds": 40.379,
+  "report_runtime_seconds": 3.895,
+  "pre_save_runtime_seconds": 61.533,
+  "save_runtime_seconds": 1.901,
+  "total_runtime_seconds": 63.436,
+  "runtime_seconds": 63.436
+}
