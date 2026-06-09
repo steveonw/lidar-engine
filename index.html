@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LiDAR Engine — Interactive Demos</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+      color: #cdd6e0;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 60px 20px;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 80px;
+    }
+    
+    h1 {
+      font-size: 3.5em;
+      margin: 0 0 10px;
+      color: #6cf;
+      letter-spacing: 2px;
+      text-shadow: 0 0 30px rgba(102, 204, 255, 0.2);
+    }
+    
+    .subtitle {
+      font-size: 1.2em;
+      color: #8a93a5;
+      margin: 0;
+    }
+    
+    .description {
+      font-size: 1.05em;
+      color: #9aa6bd;
+      margin: 40px 0 0;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.8;
+    }
+    
+    .demos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 30px;
+      margin-top: 60px;
+    }
+    
+    .demo-card {
+      background: rgba(20, 20, 35, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid #2a2a3a;
+      border-radius: 12px;
+      padding: 30px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .demo-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, rgba(102, 204, 255, 0.05) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    
+    .demo-card:hover {
+      border-color: #3af;
+      background: rgba(20, 20, 35, 0.8);
+      box-shadow: 0 8px 32px rgba(51, 170, 255, 0.15);
+      transform: translateY(-4px);
+    }
+    
+    .demo-card-content {
+      position: relative;
+      z-index: 1;
+    }
+    
+    .demo-card h2 {
+      font-size: 1.6em;
+      margin: 0 0 12px;
+      color: #aee0ff;
+      letter-spacing: 0.5px;
+    }
+    
+    .demo-card .version {
+      font-size: 0.9em;
+      color: #56607a;
+      margin-bottom: 16px;
+      font-family: ui-monospace, monospace;
+    }
+    
+    .demo-card p {
+      color: #9aa6bd;
+      margin: 0 0 20px;
+      line-height: 1.7;
+    }
+    
+    .features {
+      font-size: 0.95em;
+      color: #7a8497;
+      margin: 0 0 20px;
+    }
+    
+    .features li {
+      margin-bottom: 6px;
+      list-style: none;
+      padding-left: 20px;
+      position: relative;
+    }
+    
+    .features li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: #3af;
+      font-weight: bold;
+    }
+    
+    .demo-link {
+      display: inline-block;
+      background: linear-gradient(135deg, #1b3a5a 0%, #0f2540 100%);
+      color: #aee0ff;
+      border: 1px solid #3af;
+      border-radius: 6px;
+      padding: 12px 24px;
+      text-decoration: none;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 0 1px #3af6 inset;
+    }
+    
+    .demo-link:hover {
+      background: linear-gradient(135deg, #2a5a7a 0%, #1a3560 100%);
+      box-shadow: 0 0 15px rgba(51, 170, 255, 0.4);
+      transform: translate(2px, -2px);
+    }
+    
+    footer {
+      text-align: center;
+      margin-top: 100px;
+      padding-top: 40px;
+      border-top: 1px solid #2a2a3a;
+      color: #56607a;
+      font-size: 0.95em;
+    }
+    
+    .source-link {
+      color: #3af;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    
+    .source-link:hover {
+      text-decoration: underline;
+    }
+    
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2.2em;
+      }
+      
+      .demos-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .container {
+        padding: 40px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>LiDAR Engine</h1>
+    <p class="subtitle">Interactive Web Demonstrations</p>
+    <p class="description">
+      Single-file synthetic LiDAR/wave-sensing probe engine using NumPy and PIL, with Colab harnesses and diagnostic contact sheets.
+    </p>
+  </header>
+  
+  <div class="demos-grid">
+    <div class="demo-card">
+      <div class="demo-card-content">
+        <h2>Tier 2 Demo</h2>
+        <p class="version">v0.70 · Interactive 3D Visualization</p>
+        <p>
+          Explore the interactive camera/scanner model with real-time beam evidence simulation and material classification.
+        </p>
+        <ul class="features">
+          <li>Multiple render modes (Depth, Beam Evidence, Material, Edge Debug)</li>
+          <li>9-position camera grid for different viewing angles</li>
+          <li>Real-time ray casting with occlusion & beam split detection</li>
+          <li>5 lens types (Pinhole, Wide, Telephoto, Orthographic, Fisheye)</li>
+          <li>Live statistics and diagnostic contact sheets</li>
+          <li>WASD/arrows navigation, drag to look, Space to scan</li>
+        </ul>
+        <a href="lidar_tier2_demo.html" class="demo-link">Launch Demo →</a>
+      </div>
+    </div>
+    
+    <div class="demo-card">
+      <div class="demo-card-content">
+        <h2>Getting Started</h2>
+        <p class="version">Documentation & Guides</p>
+        <p>
+          Learn about the LiDAR engine architecture, Python API, and how to integrate it into your projects.
+        </p>
+        <ul class="features">
+          <li>Engine architecture overview</li>
+          <li>Python API reference</li>
+          <li>Jupyter notebook harnesses</li>
+          <li>Diagnostic contact sheet generation</li>
+          <li>Test bundles and examples</li>
+          <li>Release quality benchmarks</li>
+        </ul>
+        <a href="https://github.com/steveonw/lidar-engine#readme" class="demo-link">View README →</a>
+      </div>
+    </div>
+  </div>
+  
+  <footer>
+    <p>
+      Explore the full source on <a href="https://github.com/steveonw/lidar-engine" class="source-link">GitHub</a>
+    </p>
+  </footer>
+</div>
+
+</body>
+</html>
