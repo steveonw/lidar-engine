@@ -441,7 +441,7 @@ function scanSensor(sensor){
 
 function finalizeAfterScan(sensor, scan, dt){
   if(viewSource==='selected' && sensor.id===activeSensorId){
-    if(currentMode==='normal') setMode('latest');
+    if(currentMode==='normal') setMode(sensor.memoryScans.length>1?'memory':'latest');
     else refreshCloud();
     updateStats(scan,dt);
   } else {
@@ -895,9 +895,9 @@ function startRollingScan(sensor){
   flash();
 }
 
-function finishSensorScan(sensor, grid, w, h, dt){
+function finishSensorScan(sensor, grid, w, h, dt, lens, res){
   computeEdgeScores(grid,w,h);
-  const scan={ grid, w, h, lens:rollingState.lens, res:rollingState.res, time:Date.now(), scanTime:dt };
+  const scan={ grid, w, h, lens, res, time:Date.now(), scanTime:dt };
   pushSensorScan(sensor, scan);
   finalizeAfterScan(sensor, scan, dt);
 }
@@ -944,10 +944,10 @@ function stepRolling(){
   }
   if(rs.done){
     const dt=performance.now()-rs.t0;
-    const sensor=rs.sensor, gg=rs.grid;
+    const sensor=rs.sensor, gg=rs.grid, rlens=rs.lens, rres=rs.res;
     rollingState=null;
     scanInProgress=false;
-    finishSensorScan(sensor, gg, w, h, dt);
+    finishSensorScan(sensor, gg, w, h, dt, rlens, rres);
   }
 }
 
@@ -1273,7 +1273,7 @@ setMode('normal');
 updateLegend();
 updateReplayUI();
 // initial scan so there's something to show
-setTimeout(()=>{ doScanSelected(); setMode('latest'); }, 250);
+setTimeout(()=>{ doScanSelected(); }, 250);
 </script>
 </body>
 </html>
