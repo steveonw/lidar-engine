@@ -217,12 +217,16 @@ const MAT_COLORS = {
    ANALYTIC RAY INTERSECTION
    ============================================================ */
 function rayBoxIntersect(ro, rd, bmin, bmax) {
-  let tmin = -Infinity, tmax = Infinity, axis = 0;
+  let tmin = -Infinity, tmax = Infinity;
   for (let i=0;i<3;i++){
+    if (Math.abs(rd[i]) < 1e-8){
+      if (ro[i] < bmin[i] || ro[i] > bmax[i]) return null;
+      continue;
+    }
     const inv = 1/rd[i];
     let t1 = (bmin[i]-ro[i])*inv, t2 = (bmax[i]-ro[i])*inv;
     if (t1>t2){ const tmp=t1;t1=t2;t2=tmp; }
-    if (t1>tmin){ tmin=t1; axis=i; }
+    if (t1>tmin) tmin=t1;
     if (t2<tmax) tmax=t2;
     if (tmin>tmax) return null;
   }
@@ -455,7 +459,7 @@ function finalizeAfterScan(sensor, scan, dt){
 function setActiveSensor(id){
   // save current camera pose back to the outgoing sensor before switching
   const old = getActiveSensor();
-  if(old){ old.pos=camPos.slice(); old.yaw=yaw; old.pitch=pitch; }
+  if(old && !replayActive){ old.pos=camPos.slice(); old.yaw=yaw; old.pitch=pitch; }
   // clear old sensor's auto-scan interval before switching
   if(old && old.autoInterval){ clearInterval(old.autoInterval); old.autoInterval=null; old.autoScan=false; }
   activeSensorId = id;
@@ -610,9 +614,10 @@ function updateMarkers(){
   for(const s of SENSORS){
     if(!s.markerEntity) continue;
     const active = (s.id===activeSensorId);
+    // hide the active sensor's own marker so it doesn't obstruct the view
+    s.markerEntity.enabled = !active;
     const base = s._markerBaseScale;
-    const sc = active ? base*1.7 : base;
-    s.markerEntity.setLocalScale(sc,sc,sc);
+    s.markerEntity.setLocalScale(base,base,base);
     const mi = s.markerEntity.render.meshInstances[0];
     const col = MARKER_COLORS[s.id]||[1,1,1];
     const e = active?1.4:0.7;
@@ -625,8 +630,11 @@ function updateMarkers(){
 const scanCanvas = document.getElementById('scan-canvas');
 const scanCtx = scanCanvas.getContext('2d');
 function resizeScanCanvas(){
-  scanCanvas.width = window.innerWidth;
-  scanCanvas.height = window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  scanCanvas.width  = window.innerWidth  * dpr;
+  scanCanvas.height = window.innerHeight * dpr;
+  scanCanvas.style.width  = window.innerWidth  + 'px';
+  scanCanvas.style.height = window.innerHeight + 'px';
 }
 resizeScanCanvas();
 window.addEventListener('resize', resizeScanCanvas);
@@ -647,7 +655,7 @@ function draw2DCloud(){
     const sp = new pc.Vec3();
     for(const pt of pts){
       wp.set(pt.pos[0], pt.pos[1], pt.pos[2]);
-      cam.worldToScreen(wp, sp);
+      cam.worldToScreen(wp, scanCanvas.width, scanCanvas.height, sp);
       if(sp.z <= 0) continue;
       const sx = sp.x, sy = sp.y;
       if(sx < -2 || sy < -2 || sx > w+2 || sy > h+2) continue;
@@ -843,18 +851,13 @@ function doScanSelected(){
   if(!rollingState || rollingState.done) scanInProgress=false;
 }
 function doScanAll(){
+  if(scanInProgress) return;
+  if(rollingState && !rollingState.done){ rollingState.done=true; rollingState=null; }
   replayActive=false;
-  const player=getActiveSensor();
+  const player=getSensor('player');
   if(activeSensorId==='player'){ player.pos=camPos.slice(); player.yaw=yaw; player.pitch=pitch; }
   for(const s of SENSORS){
-    if(s.scanStyle && s.scanStyle.startsWith('rolling')){
-      // do instant for batch to avoid colliding rolling states
-      const {fwd,up,right}=basisFor(s.yaw,s.pitch);
-      const t0=performance.now();
-      const scan=takeScan(s.pos,fwd,up,right,s.lens,s.resolution);
-      scan.scanTime=performance.now()-t0;
-      pushSensorScan(s,scan);
-    } else {
+    { // always instant for batch scan regardless of scanStyle
       const {fwd,up,right}=basisFor(s.yaw,s.pitch);
       const t0=performance.now();
       const scan=takeScan(s.pos,fwd,up,right,s.lens,s.resolution);
@@ -880,6 +883,7 @@ let rollingState = null;
 function startRollingScan(sensor){
   // cancel any in-progress rolling scan before starting a new one
   if(rollingState && !rollingState.done) rollingState.done=true;
+  scanInProgress=true;
   const res=RES[sensor.resolution];
   const style=sensor.scanStyle;
   let dir='v';
@@ -921,7 +925,8 @@ function stepRolling(){
     for(let n=0;n<N && rs.idx<half;n++,rs.idx++){
       const off=rs.idx;
       const cL=Math.floor(w/2)-off, cR=Math.floor(w/2)+off;
-      for(const i of [cL,cR]){
+      const cols = cL===cR ? [cL] : [cL,cR];
+      for(const i of cols){
         if(i<0||i>=w) continue;
         for(let j=0;j<h;j++){ const {ro,rd}=pixelRay(i,j,w,h,pos,fwd,up,right,lens); castPixel(grid,i,j,w,ro,rd); }
       }
@@ -951,8 +956,8 @@ function stepRolling(){
   }
 }
 
-function updateStats(scan,dt){
-  const s=getActiveSensor();
+function updateStats(scan,dt,overrideSensor){
+  const s=overrideSensor||getActiveSensor();
   if(!scan){
     const networkScans=SENSORS.reduce((a,x)=>a+x.scanHistory.length,0);
     document.getElementById('stats').innerHTML=
@@ -1072,7 +1077,7 @@ function replayShow(idx){
   if(s){ camPos=s.pos.slice(); yaw=s.yaw; pitch=s.pitch; syncCamera(); }
   if(currentMode==='normal') setMode('latest');
   else refreshCloud();
-  updateStats(rec.scan, rec.scan.scanTime||0);
+  updateStats(rec.scan, rec.scan.scanTime||0, getSensor(rec.sensorId));
   updateReplayUI();
   showGuideMsgShort(`Replay ${replayIndex+1}/${globalHistory.length}: ${rec.sensorName}`);
 }
@@ -1169,12 +1174,23 @@ document.getElementById('allsensors-btn').onclick=()=>{
 };
 document.getElementById('clearmem-btn').onclick=()=>{
   const s=getActiveSensor(); s.memoryScans=[]; s.scanHistory=[];
+  globalHistory=globalHistory.filter(r=>r.sensorId!==s.id);
+  replayIndex=Math.min(replayIndex,globalHistory.length-1);
+  if(globalHistory.length===0){ replayActive=false; stopReplayPlay(); }
+  updateReplayUI();
   document.getElementById('stats').textContent=s.name+' memory cleared';
   refreshCloud();
 };
 document.getElementById('clearall-btn').onclick=()=>{
-  for(const s of SENSORS){ s.memoryScans=[]; s.scanHistory=[]; }
+  for(const s of SENSORS){
+    s.memoryScans=[]; s.scanHistory=[];
+    s.autoScan=false;
+    if(s.autoInterval){ clearInterval(s.autoInterval); s.autoInterval=null; }
+  }
+  if(rollingState){ rollingState.done=true; rollingState=null; }
+  scanInProgress=false;
   globalHistory=[]; replayIndex=-1; replayActive=false; stopReplayPlay();
+  document.getElementById('autoscan').checked=false;
   document.getElementById('stats').textContent='all sensor memory cleared';
   updateReplayUI(); refreshCloud();
 };
@@ -1201,7 +1217,8 @@ document.getElementById('autoscan').onchange=(e)=>{
 /* ---------- Keyboard movement ---------- */
 const keys={};
 window.addEventListener('keydown',e=>{
-  if(e.target.tagName==='SELECT') return;
+  const tag=e.target.tagName;
+  if(tag==='SELECT'||tag==='INPUT'||tag==='BUTTON'||tag==='TEXTAREA') return;
   keys[e.code]=true;
   if(e.code==='Space'){ e.preventDefault(); doScanSelected(); }
   if(e.code==='KeyR'){ const s=getActiveSensor(); s.memoryScans=[]; s.scanHistory=[];
@@ -1209,6 +1226,7 @@ window.addEventListener('keydown',e=>{
   if(e.code==='KeyP'){ screenshot(); }
 });
 window.addEventListener('keyup',e=>{ keys[e.code]=false; });
+window.addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; });
 
 /* ---------- Mouse look (drag) ---------- */
 let dragging=false,lastX=0,lastY=0;
