@@ -453,8 +453,10 @@ function finalizeAfterScan(sensor, scan, dt){
 }
 
 function setActiveSensor(id){
-  // clear old sensor's auto-scan interval before switching
+  // save current camera pose back to the outgoing sensor before switching
   const old = getActiveSensor();
+  if(old){ old.pos=camPos.slice(); old.yaw=yaw; old.pitch=pitch; }
+  // clear old sensor's auto-scan interval before switching
   if(old && old.autoInterval){ clearInterval(old.autoInterval); old.autoInterval=null; old.autoScan=false; }
   activeSensorId = id;
   viewSource = 'selected';
