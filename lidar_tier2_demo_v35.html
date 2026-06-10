@@ -398,6 +398,7 @@ let globalHistory = []; // max 40 entries
 let replayIndex = -1;
 let replayActive = false;
 let replayTimer = null;
+let scanInProgress = false;
 
 function getActiveSensor(){ return SENSORS.find(s=>s.id===activeSensorId); }
 function getSensor(id){ return SENSORS.find(s=>s.id===id); }
@@ -452,8 +453,14 @@ function finalizeAfterScan(sensor, scan, dt){
 }
 
 function setActiveSensor(id){
+  // clear old sensor's auto-scan interval before switching
+  const old = getActiveSensor();
+  if(old && old.autoInterval){ clearInterval(old.autoInterval); old.autoInterval=null; old.autoScan=false; }
   activeSensorId = id;
   viewSource = 'selected';
+  // clear stale 2D cloud when switching sensors
+  _pendingCloudPoints = null;
+  scanCtx.clearRect(0, 0, scanCanvas.width, scanCanvas.height);
   const s = getActiveSensor();
   camPos = s.pos.slice();
   yaw = s.yaw; pitch = s.pitch;
@@ -821,6 +828,7 @@ function gotoCam(key){
    SCAN ACTIONS
    ============================================================ */
 function doScanSelected(){
+  if(scanInProgress) return;
   // sync active sensor params from left panel before scanning
   const s=getActiveSensor();
   s.lens=document.getElementById('lens-select').value;
@@ -828,7 +836,9 @@ function doScanSelected(){
   s.scanStyle=document.getElementById('style-select').value;
   if(activeSensorId==='player'){ s.pos=camPos.slice(); s.yaw=yaw; s.pitch=pitch; }
   replayActive=false;
+  scanInProgress=true;
   scanSensor(s);
+  if(!rollingState || rollingState.done) scanInProgress=false;
 }
 function doScanAll(){
   replayActive=false;
@@ -866,6 +876,8 @@ let rollingState = null;
 // { sensor, grid, w, h, lens, res, dir, col/row, done, progress }
 
 function startRollingScan(sensor){
+  // cancel any in-progress rolling scan before starting a new one
+  if(rollingState && !rollingState.done) rollingState.done=true;
   const res=RES[sensor.resolution];
   const style=sensor.scanStyle;
   let dir='v';
@@ -932,6 +944,7 @@ function stepRolling(){
     const dt=performance.now()-rs.t0;
     const sensor=rs.sensor, gg=rs.grid;
     rollingState=null;
+    scanInProgress=false;
     finishSensorScan(sensor, gg, w, h, dt);
   }
 }
@@ -1072,7 +1085,7 @@ function replayTogglePlay(){
   document.getElementById('replay-play').classList.add('active');
   replayTimer=setInterval(()=>{
     let next=replayIndex+1;
-    if(next>=globalHistory.length) next=0;
+    if(next>=globalHistory.length){ stopReplayPlay(); return; } // stop at end, don't loop
     replayShow(next);
   },1500);
 }
@@ -1179,7 +1192,7 @@ document.getElementById('map-toggle').onclick=()=>{ const n=document.getElementB
 document.getElementById('autoscan').onchange=(e)=>{
   const s=getActiveSensor();
   s.autoScan=e.target.checked;
-  if(e.target.checked){ s.autoInterval=setInterval(()=>{ if(activeSensorId===s.id) doScanSelected(); else scanSensor(s); },1500); }
+  if(e.target.checked){ s.autoInterval=setInterval(()=>{ if(scanInProgress) return; if(activeSensorId===s.id) doScanSelected(); else scanSensor(s); },1500); }
   else { clearInterval(s.autoInterval); s.autoInterval=null; }
 };
 
