@@ -630,9 +630,8 @@ function updateMarkers(){
 const scanCanvas = document.getElementById('scan-canvas');
 const scanCtx = scanCanvas.getContext('2d');
 function resizeScanCanvas(){
-  const dpr = window.devicePixelRatio || 1;
-  scanCanvas.width  = window.innerWidth  * dpr;
-  scanCanvas.height = window.innerHeight * dpr;
+  scanCanvas.width  = window.innerWidth;
+  scanCanvas.height = window.innerHeight;
   scanCanvas.style.width  = window.innerWidth  + 'px';
   scanCanvas.style.height = window.innerHeight + 'px';
 }
@@ -655,7 +654,7 @@ function draw2DCloud(){
     const sp = new pc.Vec3();
     for(const pt of pts){
       wp.set(pt.pos[0], pt.pos[1], pt.pos[2]);
-      cam.worldToScreen(wp, scanCanvas.width, scanCanvas.height, sp);
+      cam.worldToScreen(wp, sp);
       if(sp.z <= 0) continue;
       const sx = sp.x, sy = sp.y;
       if(sx < -2 || sy < -2 || sx > w+2 || sy > h+2) continue;
