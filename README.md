@@ -296,6 +296,54 @@ Known limits:
 - polarization is a scalar proxy, not full Stokes/Mueller polarization
 - material classification works best through `material_core`, not raw classification alone
 
+## LiDAR Studio — drive the real engine from a browser
+
+`lidar_studio.py` is a single-file web front-end that runs the **actual Python
+engine** (not the Tier-2 JS approximation). It lets you pick a built-in scene or
+**upload your own 3D model**, choose a sensor preset, and see the engine's real
+diagnostic contact sheet, classification, and material-channel reports inline.
+
+```bash
+python lidar_studio.py
+# then open http://localhost:8080
+```
+
+By default it loads the newest engine it can find
+(`lidar_lenses_wave_v080_alpha5_1.py`, falling back to `lidar_lenses_wave_v070.py`).
+Point it at a specific engine with `--engine`:
+
+```bash
+python lidar_studio.py --engine lidar_lenses_wave_v070.py --port 8080
+```
+
+### What it does
+
+- **Scenes:** the built-in cabin demo, the material target board, or your own
+  uploaded model.
+- **Model upload:** `.stl` (binary or ASCII, via the engine's native loader) and
+  `.obj` (triangulated Wavefront, via a small built-in parser). Uploaded models
+  are optionally recentered and scaled to sit on the ground so the presets frame
+  them well.
+- **Material assumption:** tag an uploaded mesh as `metal`, `glass`, `wood`,
+  `concrete`, etc. to drive the acoustic / ultrasonic / polarization priors —
+  the same `MATERIAL_PRIORS` the test scenes use — or leave it on `auto`.
+- **Presets:** every preset the engine exposes (`full_diagnostic`,
+  `beam_return_debug`, `indoor_structure`, `material_scan`, …).
+- **Output:** the full contact sheet, the geom-edge overlay, `material_core` /
+  `material_filled` views, depth/coverage stats, the classification breakdown,
+  and the per-material channel report — all rendered by the real pipeline via
+  `run_sensor_preset()`.
+
+The engine already raycasts triangle meshes (BVH + Möller-Trumbore) and `Scene`
+already holds a `meshes` list; the only gap was that the primitive-oriented
+diagnostics (camera auto-framing in particular) didn't know about meshes.
+`lidar_studio.py` closes that gap with a small **runtime compatibility shim** —
+it makes `Scene` iterable and teaches `scene_bounds()` about mesh AABBs on the
+loaded module, leaving the engine source files untouched. So the same shim works
+against any engine version you point it at, and a `Scene(meshes=[...])` flows
+through the same diagnostics as the primitive demos. No third-party web
+dependencies — just the standard library plus whatever the engine already needs.
+
 ## Roadmap
 
 ### v0.7.x
