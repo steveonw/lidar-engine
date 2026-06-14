@@ -316,6 +316,19 @@ Point it at a specific engine with `--engine`:
 python lidar_studio.py --engine lidar_lenses_wave_v070.py --port 8080
 ```
 
+### Camera-control Studio copy
+
+`lidar_studio_camera.py` is a separate copy of the Studio for manual camera and
+lens experiments. It keeps the same real-engine workflow, but adds a **Manual
+camera / lens capture** panel so you can send an exact camera position, target,
+up vector, lens, FOV, fisheye FOV, and orthographic size to the engine. Manual
+camera capture disables preset auto-framing so the scan is captured from the
+view you specify.
+
+```bash
+python lidar_studio_camera.py
+```
+
 You can also load the engine from the page itself — just like uploading a model.
 At the top of the panel the **Engine** control lets you either **upload an engine
 `.py` file** from your browser or **load one by path** on the server, and switch
@@ -426,7 +439,6 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 
 
 
