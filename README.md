@@ -316,10 +316,12 @@ Point it at a specific engine with `--engine`:
 python lidar_studio.py --engine lidar_lenses_wave_v070.py --port 8080
 ```
 
-If no engine is found automatically, the server still starts and the page shows
-an **Engine** box at the top of the panel — paste the path to an engine `.py`
-(on the machine running the server) and click **Load engine** to load it
-manually, no restart needed.
+You can also load the engine from the page itself — just like uploading a model.
+At the top of the panel the **Engine** control lets you either **upload an engine
+`.py` file** from your browser or **load one by path** on the server, and switch
+engines at any time via the **change** link (no restart needed). If no engine is
+found automatically the loader opens on its own and scans stay disabled until you
+pick one.
 
 ### Quick start
 

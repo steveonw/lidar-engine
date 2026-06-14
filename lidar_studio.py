@@ -82,6 +82,8 @@ def patch_engine(eng):
     ``make_camera_for_preset`` and friends. Dunder methods are looked up on the
     type, so assigning to the class works for ``Scene``/``Mesh`` too.
     """
+    if not (hasattr(eng, "Scene") and hasattr(eng, "Mesh")):
+        return  # not a LiDAR engine; set_engine() will report this clearly.
     Scene, Mesh = eng.Scene, eng.Mesh
 
     # 1) Scene is iterable + sized: yields primitives then meshes as "pieces",
@@ -310,6 +312,24 @@ def set_engine(path: str):
     return mod
 
 
+_ENGINE_UPLOAD_DIR = None
+
+
+def save_and_set_engine(filename: str, raw: bytes):
+    """Persist an uploaded engine .py to a temp dir and load it — the upload
+    equivalent of set_engine(), mirroring how models are uploaded."""
+    global _ENGINE_UPLOAD_DIR
+    if _ENGINE_UPLOAD_DIR is None:
+        _ENGINE_UPLOAD_DIR = tempfile.mkdtemp(prefix="lidar_studio_engine_")
+    name = os.path.basename(filename or "engine.py") or "engine.py"
+    if not name.endswith(".py"):
+        name += ".py"
+    dest = os.path.join(_ENGINE_UPLOAD_DIR, name)
+    with open(dest, "wb") as f:
+        f.write(raw)
+    return set_engine(dest)
+
+
 def engine_meta() -> dict:
     """Current engine status + the option lists the page needs. Works whether or
     not an engine is loaded, so the UI can offer a loader when none was found."""
@@ -391,12 +411,19 @@ PAGE = r"""<!DOCTYPE html>
 </header>
 <div class="wrap">
   <div class="panel">
+    <div id="engineStatus" class="hint" style="margin-bottom:6px">
+      Engine: <b id="engCur" style="color:#9fd0ff">…</b>
+      <a id="engToggle" style="color:#7fa8e0;cursor:pointer;margin-left:6px">change</a>
+    </div>
     <div id="engineBox" style="display:none">
-      <label>Engine</label>
-      <div class="hint" id="engineHint" style="margin-bottom:6px"></div>
+      <label>Upload engine file (.py)</label>
+      <input type="file" id="engineFile" accept=".py">
+      <button id="uploadEngine" style="width:100%;margin-top:8px;padding:9px;background:#2a3550;border:1px solid #3f4f74;border-radius:7px;color:#dfe6f0;cursor:pointer">Upload &amp; load engine</button>
+      <label style="margin-top:14px">…or load by path on the server</label>
       <input type="text" id="enginePath" placeholder="/path/to/lidar_lenses_wave_v0xx.py"
              style="width:100%;padding:8px 9px;background:#121a28;border:1px solid #26324a;border-radius:7px;color:#e8eef7;font-size:13px">
-      <button id="loadEngine" style="width:100%;margin-top:8px;padding:9px;background:#2a3550;border:1px solid #3f4f74;border-radius:7px;color:#dfe6f0;cursor:pointer">Load engine</button>
+      <button id="loadEngine" style="width:100%;margin-top:8px;padding:9px;background:#2a3550;border:1px solid #3f4f74;border-radius:7px;color:#dfe6f0;cursor:pointer">Load by path</button>
+      <div class="hint" id="engineHint" style="margin-top:8px"></div>
       <div class="hint" id="engineErr" style="color:#ffb4bc"></div>
       <hr style="border:0;border-top:1px solid #1d2636;margin:16px 0">
     </div>
@@ -446,17 +473,19 @@ let engineLoaded = false;
 function applyMeta(m) {
   engineLoaded = !!m.loaded;
   $("engineName").textContent = m.engine || "none loaded";
+  $("engCur").textContent = m.engine || "none loaded";
   // preset + material option lists
   $("preset").innerHTML = m.presets.map(p =>
     `<option value="${p}"${p==="full_diagnostic"?" selected":""}>${p}</option>`).join("");
   $("material").innerHTML = m.materials.map(x => `<option value="${x}">${x}</option>`).join("");
-  // show/hide the manual engine loader
+  // The loader is auto-open when nothing is loaded, collapsible once one is.
   $("engineBox").style.display = engineLoaded ? "none" : "block";
-  if (!engineLoaded) {
-    const cands = (m.candidates||[]).map(c => `<div>• <code>${c}</code></div>`).join("");
-    $("engineHint").innerHTML = "No engine was found automatically. Enter the path to an engine <code>.py</code> on the server and load it." +
-      (cands ? "<br>Tried:<br>" + cands : "");
-  }
+  $("engToggle").textContent = engineLoaded ? "change" : "";
+  const cands = (m.candidates||[]).map(c => `<div>• <code>${c}</code></div>`).join("");
+  $("engineHint").innerHTML = engineLoaded ? "" :
+    ("No engine was found automatically. Upload an engine <code>.py</code> or give a path." +
+     (cands ? "<br>Tried:<br>" + cands : ""));
+  $("engineErr").textContent = "";
   $("go").disabled = !engineLoaded;
   $("go").textContent = engineLoaded ? "Run scan" : "Load an engine first";
 }
@@ -466,18 +495,30 @@ async function loadMeta() {
   catch (e) { $("engineName").textContent = "(failed to reach server)"; }
 }
 
-async function loadEngine() {
-  const path = $("enginePath").value.trim();
-  if (!path) { $("engineErr").textContent = "Enter a path first."; return; }
+async function postEngine(url, payload, btn, busyLabel, idleLabel) {
   $("engineErr").textContent = "";
-  $("loadEngine").disabled = true; $("loadEngine").textContent = "Loading…";
+  btn.disabled = true; const prev = btn.textContent; btn.textContent = busyLabel;
   try {
-    const m = await (await fetch("/load_engine", {method:"POST",
-      headers:{"Content-Type":"application/json"}, body:JSON.stringify({path})})).json();
+    const m = await (await fetch(url, {method:"POST",
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)})).json();
     if (m.ok === false) { $("engineErr").textContent = m.error || "failed to load"; }
     else { applyMeta(m); }
   } catch (e) { $("engineErr").textContent = String(e); }
-  $("loadEngine").disabled = false; $("loadEngine").textContent = "Load engine";
+  btn.disabled = false; btn.textContent = idleLabel || prev;
+}
+
+async function loadEngine() {
+  const path = $("enginePath").value.trim();
+  if (!path) { $("engineErr").textContent = "Enter a path first."; return; }
+  await postEngine("/load_engine", {path}, $("loadEngine"), "Loading…", "Load by path");
+}
+
+async function uploadEngine() {
+  const f = $("engineFile").files[0];
+  if (!f) { $("engineErr").textContent = "Choose a .py file first."; return; }
+  const data_b64 = await fileToB64(f);
+  await postEngine("/upload_engine", {filename:f.name, data_b64},
+                   $("uploadEngine"), "Uploading…", "Upload & load engine");
 }
 
 $("sceneSeg").addEventListener("click", e => {
@@ -529,7 +570,15 @@ async function run() {
 }
 $("go").addEventListener("click", run);
 $("loadEngine").addEventListener("click", loadEngine);
+$("uploadEngine").addEventListener("click", uploadEngine);
 $("enginePath").addEventListener("keydown", e => { if (e.key === "Enter") loadEngine(); });
+$("engToggle").addEventListener("click", () => {
+  if (!engineLoaded) return;  // already open and required
+  const box = $("engineBox");
+  const open = box.style.display !== "none";
+  box.style.display = open ? "none" : "block";
+  $("engToggle").textContent = open ? "change" : "hide";
+});
 loadMeta();
 
 function render_error(msg) {
@@ -642,7 +691,13 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == "/load_engine":
                 req = self._read_json()
                 set_engine(req.get("path", ""))
-                print(f"  engine loaded via UI: {ENGINE_PATH}")
+                print(f"  engine loaded via UI (path): {ENGINE_PATH}")
+                self._send(200, json.dumps(engine_meta()))
+            elif self.path == "/upload_engine":
+                req = self._read_json()
+                save_and_set_engine(req.get("filename", "engine.py"),
+                                    base64.b64decode(req["data_b64"]))
+                print(f"  engine uploaded via UI: {ENGINE_PATH}")
                 self._send(200, json.dumps(engine_meta()))
             else:
                 self._send(404, json.dumps({"ok": False, "error": "not found"}))
