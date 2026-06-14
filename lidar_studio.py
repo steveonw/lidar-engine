@@ -30,11 +30,11 @@ from __future__ import annotations
 import argparse
 import base64
 import importlib.util
-import io
 import json
 import os
 import sys
 import tempfile
+import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -50,6 +50,10 @@ _DEFAULT_ENGINES = [
 
 ENG = None          # the loaded engine module
 ENGINE_PATH = None  # path it was loaded from
+
+# Serializes engine use: prevents concurrent scans and engine swaps mid-scan
+# from racing on the shared global ENG (the server is multi-threaded).
+_LOCK = threading.Lock()
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -137,18 +141,20 @@ def parse_obj(text: str, color=(0.72, 0.72, 0.75), piece_id: int = 1000):
     verts = []
     faces = []
     for line in text.splitlines():
-        line = line.strip()
-        if line.startswith("v "):
-            p = line.split()
-            verts.append([float(p[1]), float(p[2]), float(p[3])])
-        elif line.startswith("f "):
-            toks = line.split()[1:]
+        parts = line.split()  # splits on any whitespace incl. tabs
+        if not parts:
+            continue
+        tag = parts[0]
+        if tag == "v" and len(parts) >= 4:
+            verts.append([float(parts[1]), float(parts[2]), float(parts[3])])
+        elif tag == "f" and len(parts) >= 4:
             idx = []
-            for t in toks:
+            for t in parts[1:]:
                 raw = t.split("/")[0]
                 if raw == "":
                     continue
                 i = int(raw)
+                # OBJ indices are 1-based; negatives are relative to verts so far.
                 idx.append((i - 1) if i > 0 else (len(verts) + i))
             for k in range(1, len(idx) - 1):  # fan triangulation
                 faces.append([idx[0], idx[k], idx[k + 1]])
@@ -227,12 +233,6 @@ def _png_b64(path: str) -> str:
         return "data:image/png;base64," + base64.b64encode(f.read()).decode("ascii")
 
 
-def _img_b64(img) -> str:
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-
-
 def run_scan(req: dict) -> dict:
     if ENG is None:
         raise RuntimeError("no engine loaded — set one in the Engine box (or start with --engine)")
@@ -253,7 +253,10 @@ def run_scan(req: dict) -> dict:
         overrides["height"] = max(64, min(600, overrides["height"]))
     if "rays_per_pixel" in overrides:
         overrides["rays_per_pixel"] = max(1, min(16, overrides["rays_per_pixel"]))
-    seed = int(req.get("seed", 42))
+    try:
+        seed = int(req.get("seed") or 42)  # empty field / missing → default
+    except (TypeError, ValueError):
+        seed = 42
 
     with tempfile.TemporaryDirectory() as out_dir:
         result = ENG.run_sensor_preset(
@@ -334,12 +337,14 @@ def engine_meta() -> dict:
     """Current engine status + the option lists the page needs. Works whether or
     not an engine is loaded, so the UI can offer a loader when none was found."""
     loaded = ENG is not None
+    presets = sorted(getattr(ENG, "SENSOR_PRESETS", {}).keys()) if loaded else []
+    materials = ["auto"] + sorted(getattr(ENG, "MATERIAL_PRIORS", {}).keys()) if loaded else ["auto"]
     return {
         "loaded": loaded,
         "engine": os.path.basename(ENGINE_PATH) if ENGINE_PATH else None,
         "engine_path": ENGINE_PATH,
-        "presets": sorted(ENG.SENSOR_PRESETS.keys()) if loaded else [],
-        "materials": (["auto"] + sorted(ENG.MATERIAL_PRIORS.keys())) if loaded else ["auto"],
+        "presets": presets,
+        "materials": materials,
         "candidates": [c for c in _DEFAULT_ENGINES],
     }
 
@@ -685,22 +690,26 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, json.dumps({"ok": False, "error": "not found"}))
 
     def do_POST(self):
+        # Read the body before taking the lock; only the engine work is serialized.
         try:
-            if self.path == "/scan":
-                self._send(200, json.dumps(run_scan(self._read_json())))
-            elif self.path == "/load_engine":
-                req = self._read_json()
-                set_engine(req.get("path", ""))
-                print(f"  engine loaded via UI (path): {ENGINE_PATH}")
-                self._send(200, json.dumps(engine_meta()))
-            elif self.path == "/upload_engine":
-                req = self._read_json()
-                save_and_set_engine(req.get("filename", "engine.py"),
-                                    base64.b64decode(req["data_b64"]))
-                print(f"  engine uploaded via UI: {ENGINE_PATH}")
-                self._send(200, json.dumps(engine_meta()))
-            else:
+            if self.path not in ("/scan", "/load_engine", "/upload_engine"):
                 self._send(404, json.dumps({"ok": False, "error": "not found"}))
+                return
+            req = self._read_json()
+            with _LOCK:
+                if self.path == "/scan":
+                    self._send(200, json.dumps(run_scan(req)))
+                elif self.path == "/load_engine":
+                    set_engine(req.get("path", ""))
+                    print(f"  engine loaded via UI (path): {ENGINE_PATH}")
+                    self._send(200, json.dumps(engine_meta()))
+                else:  # /upload_engine
+                    if not req.get("data_b64"):
+                        raise ValueError("no file data received")
+                    save_and_set_engine(req.get("filename", "engine.py"),
+                                        base64.b64decode(req["data_b64"]))
+                    print(f"  engine uploaded via UI: {ENGINE_PATH}")
+                    self._send(200, json.dumps(engine_meta()))
         except Exception as e:
             traceback.print_exc()
             self._send(200, json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}))
