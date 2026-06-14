@@ -196,6 +196,58 @@ def normalize_mesh(mesh, target_size: float = 6.0):
                     piece_id=mesh.piece_id, piece_type=mesh.piece_type)
 
 
+def _cluster_decimate(V, F, grid_n):
+    """One vertex-clustering pass: snap vertices to a grid_n³ grid, collapse each
+    occupied cell to its centroid, remap faces, drop degenerate triangles.
+    Returns (new_vertices, new_faces)."""
+    mn = V.min(axis=0)
+    ext = float(np.max(V.max(axis=0) - mn)) or 1.0
+    cell = ext / grid_n
+    ijk = np.floor((V - mn) / cell).astype(np.int64)
+    # Pack the 3 cell indices into one key for a fast 1-D unique.
+    span = int(ijk.max()) + 2
+    key = (ijk[:, 0] * span + ijk[:, 1]) * span + ijk[:, 2]
+    _, inv = np.unique(key, return_inverse=True)
+    nC = int(inv.max()) + 1
+    newV = np.zeros((nC, 3), dtype=np.float64)
+    counts = np.zeros(nC, dtype=np.float64)
+    np.add.at(newV, inv, V)
+    np.add.at(counts, inv, 1.0)
+    newV /= counts[:, None]
+    newF = inv[F]  # remap each face's vertex ids to its cluster ids
+    good = ((newF[:, 0] != newF[:, 1]) &
+            (newF[:, 1] != newF[:, 2]) &
+            (newF[:, 0] != newF[:, 2]))
+    return newV, newF[good]
+
+
+def decimate_mesh(mesh, target_tris: int):
+    """Reduce a mesh toward `target_tris` via vertex clustering (no external
+    deps). Binary-searches the grid resolution for the largest triangle count
+    that stays under the budget. Returns mesh unchanged if already small."""
+    V = np.asarray(mesh.vertices, dtype=np.float64)
+    F = np.asarray(mesh.faces, dtype=np.int64)
+    if F.shape[0] <= target_tris:
+        return mesh
+    lo, hi, best = 4, 1024, None
+    for _ in range(10):
+        mid = (lo + hi) // 2
+        nv, nf = _cluster_decimate(V, F, mid)
+        if nf.shape[0] > target_tris:
+            hi = mid                       # too fine → fewer cells
+        else:
+            best = (nv, nf); lo = mid      # fits budget → try finer
+        if hi - lo <= 1:
+            break
+    if best is None:                       # even the coarsest pass overshot
+        best = _cluster_decimate(V, F, lo)
+    nv, nf = best
+    if nf.shape[0] < 4:                    # pathological — keep the original
+        return mesh
+    return ENG.Mesh(vertices=nv, faces=nf, color=mesh.color,
+                    piece_id=mesh.piece_id, piece_type=mesh.piece_type)
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Scene building + scan
 # ──────────────────────────────────────────────────────────────────────────
@@ -211,6 +263,18 @@ def build_scene(req: dict):
         filename = req.get("filename", "model.stl")
         data = base64.b64decode(req["data_b64"])
         mesh = load_mesh_from_upload(filename, data)
+        orig_tris = int(mesh.faces.shape[0])
+        # Big meshes are slow to raycast; simplify toward a triangle budget.
+        simplified_to = None
+        if req.get("simplify", True):
+            try:
+                target = int(req.get("max_tris") or 40000)
+            except (TypeError, ValueError):
+                target = 40000
+            target = max(1000, min(500000, target))
+            if orig_tris > target:
+                mesh = decimate_mesh(mesh, target)
+                simplified_to = int(mesh.faces.shape[0])
         material = req.get("material", "auto")
         if material and material != "auto":
             mesh.piece_type = material
@@ -219,6 +283,8 @@ def build_scene(req: dict):
         info = {
             "source": f"uploaded {filename}",
             "triangles": int(mesh.faces.shape[0]),
+            "triangles_original": orig_tris,
+            "simplified": simplified_to is not None,
             "vertices": int(mesh.vertices.shape[0]),
             "material": material,
             "bounds_min": [round(float(x), 3) for x in mesh.aabb_min],
@@ -446,6 +512,10 @@ PAGE = r"""<!DOCTYPE html>
       <select id="material"></select>
       <div class="hint">Drives acoustic / ultrasonic / polarization priors. "auto" = neutral mesh defaults.</div>
       <label class="chk"><input type="checkbox" id="normalize" checked> Normalize size &amp; drop to ground</label>
+      <label class="chk"><input type="checkbox" id="simplify" checked> Simplify large meshes</label>
+      <label>Max triangles</label>
+      <input type="number" id="maxTris" value="40000" min="1000" max="500000" step="1000">
+      <div class="hint">Heavy meshes are slow to raycast. Above this budget the model is decimated (vertex clustering) before scanning.</div>
     </div>
 
     <label>Sensor preset</label>
@@ -556,6 +626,7 @@ async function run() {
     width: $("width").value, height: $("height").value,
     rays_per_pixel: $("rays").value, seed: $("seed").value,
     material: $("material").value, normalize: $("normalize").checked,
+    simplify: $("simplify").checked, max_tris: $("maxTris").value,
   };
   if (scene === "upload") {
     const f = $("file").files[0];
@@ -609,8 +680,12 @@ function render(d) {
   const s = d.stats, ds = s.depth_stats || {};
   h += '<div class="card"><h3>Run</h3><div class="kv">';
   h += `<div class="k">scene</div><div class="v">${esc(d.scene_info.source)}</div>`;
-  if (d.scene_info.triangles != null)
-    h += `<div class="k">geometry</div><div class="v">${d.scene_info.triangles} tris / ${d.scene_info.vertices} verts</div>`;
+  if (d.scene_info.triangles != null) {
+    let g = `${d.scene_info.triangles} tris / ${d.scene_info.vertices} verts`;
+    if (d.scene_info.simplified)
+      g += ` <span style="color:#caa53b">(simplified from ${d.scene_info.triangles_original})</span>`;
+    h += `<div class="k">geometry</div><div class="v">${g}</div>`;
+  }
   h += `<div class="k">preset</div><div class="v">${esc(d.preset)} — ${esc(d.preset_description||"")}</div>`;
   h += `<div class="k">render</div><div class="v">${s.width}×${s.height}, lens ${esc(s.lens)}, ${s.rays_per_pixel} rays/px</div>`;
   h += `<div class="k">coverage</div><div class="v">${ds.coverage!=null?(ds.coverage*100).toFixed(1)+"%":"—"}</div>`;
