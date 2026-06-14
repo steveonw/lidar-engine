@@ -316,6 +316,36 @@ Point it at a specific engine with `--engine`:
 python lidar_studio.py --engine lidar_lenses_wave_v070.py --port 8080
 ```
 
+### Quick start
+
+1. **Python 3.8+** and the engine's libraries (the server itself is pure
+   standard library — no web framework):
+
+   ```bash
+   pip install numpy Pillow matplotlib pandas openpyxl
+   ```
+
+   A scan only strictly needs `numpy` and `Pillow`, but the full set matches
+   what the engine expects.
+
+2. **Run it** from the repo root, then open the printed URL:
+
+   ```bash
+   python lidar_studio.py
+   # → http://localhost:8080
+   ```
+
+   Both engine files already ship in this repo, so there is nothing else to
+   download. Use `--port 8090` if `8080` is busy.
+
+3. **Use it** in the browser: pick a scene (cabin demo, material board, or
+   **Upload model**); for an upload, drop in a `.stl` / `.obj`, optionally tag a
+   material, choose a preset, and press **Run scan**.
+
+A scan runs the real pipeline, so it takes a few seconds up to ~30s depending on
+resolution and rays/px. Start small (e.g. 240×160, 2 rays/px) to iterate fast,
+then turn it up. The server binds to `127.0.0.1` (local only) by default.
+
 ### What it does
 
 - **Scenes:** the built-in cabin demo, the material target board, or your own
