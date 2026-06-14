@@ -232,6 +232,8 @@ def _img_b64(img) -> str:
 
 
 def run_scan(req: dict) -> dict:
+    if ENG is None:
+        raise RuntimeError("no engine loaded — set one in the Engine box (or start with --engine)")
     scene, scene_name, info = build_scene(req)
 
     preset = req.get("preset", "full_diagnostic")
@@ -292,17 +294,38 @@ def run_scan(req: dict) -> dict:
 # ──────────────────────────────────────────────────────────────────────────
 # HTML page
 # ──────────────────────────────────────────────────────────────────────────
+def set_engine(path: str):
+    """Load `path` as the active engine, validating it looks like one. Used both
+    at startup and by the /load_engine endpoint when no engine was auto-found."""
+    global ENG, ENGINE_PATH
+    p = os.path.abspath(os.path.expanduser(path))
+    if not os.path.exists(p):
+        raise FileNotFoundError(f"no such file: {p}")
+    mod = load_engine(p)
+    if not (hasattr(mod, "SENSOR_PRESETS") and hasattr(mod, "run_sensor_preset")
+            and hasattr(mod, "Scene") and hasattr(mod, "Mesh")):
+        raise ValueError(f"{os.path.basename(p)} doesn't look like a LiDAR Lenses "
+                         "Wave engine (missing SENSOR_PRESETS / run_sensor_preset / Scene / Mesh)")
+    ENG, ENGINE_PATH = mod, p
+    return mod
+
+
+def engine_meta() -> dict:
+    """Current engine status + the option lists the page needs. Works whether or
+    not an engine is loaded, so the UI can offer a loader when none was found."""
+    loaded = ENG is not None
+    return {
+        "loaded": loaded,
+        "engine": os.path.basename(ENGINE_PATH) if ENGINE_PATH else None,
+        "engine_path": ENGINE_PATH,
+        "presets": sorted(ENG.SENSOR_PRESETS.keys()) if loaded else [],
+        "materials": (["auto"] + sorted(ENG.MATERIAL_PRIORS.keys())) if loaded else ["auto"],
+        "candidates": [c for c in _DEFAULT_ENGINES],
+    }
+
+
 def index_html() -> str:
-    presets = sorted(ENG.SENSOR_PRESETS.keys())
-    materials = ["auto"] + sorted(ENG.MATERIAL_PRIORS.keys())
-    preset_opts = "".join(
-        f'<option value="{p}"{" selected" if p == "full_diagnostic" else ""}>{p}</option>'
-        for p in presets)
-    material_opts = "".join(f'<option value="{m}">{m}</option>' for m in materials)
-    engine_name = os.path.basename(ENGINE_PATH)
-    return PAGE.replace("__PRESETS__", preset_opts) \
-               .replace("__MATERIALS__", material_opts) \
-               .replace("__ENGINE__", engine_name)
+    return PAGE
 
 
 PAGE = r"""<!DOCTYPE html>
@@ -364,10 +387,19 @@ PAGE = r"""<!DOCTYPE html>
 <body>
 <header>
   <h1>LiDAR Lenses Wave — Studio</h1>
-  <div class="sub">Live front-end driving the real engine: <code>__ENGINE__</code>. Pick a scene or upload your own 3D model, then run the full sensor pipeline.</div>
+  <div class="sub">Live front-end driving the real engine: <code id="engineName">…</code>. Pick a scene or upload your own 3D model, then run the full sensor pipeline.</div>
 </header>
 <div class="wrap">
   <div class="panel">
+    <div id="engineBox" style="display:none">
+      <label>Engine</label>
+      <div class="hint" id="engineHint" style="margin-bottom:6px"></div>
+      <input type="text" id="enginePath" placeholder="/path/to/lidar_lenses_wave_v0xx.py"
+             style="width:100%;padding:8px 9px;background:#121a28;border:1px solid #26324a;border-radius:7px;color:#e8eef7;font-size:13px">
+      <button id="loadEngine" style="width:100%;margin-top:8px;padding:9px;background:#2a3550;border:1px solid #3f4f74;border-radius:7px;color:#dfe6f0;cursor:pointer">Load engine</button>
+      <div class="hint" id="engineErr" style="color:#ffb4bc"></div>
+      <hr style="border:0;border-top:1px solid #1d2636;margin:16px 0">
+    </div>
     <label>Scene</label>
     <div class="seg" id="sceneSeg">
       <button data-scene="demo" class="active">Cabin demo</button>
@@ -379,13 +411,13 @@ PAGE = r"""<!DOCTYPE html>
       <input type="file" id="file" accept=".stl,.obj">
       <div class="hint">Binary or ASCII STL, or triangulated Wavefront OBJ.</div>
       <label>Material assumption</label>
-      <select id="material">__MATERIALS__</select>
+      <select id="material"></select>
       <div class="hint">Drives acoustic / ultrasonic / polarization priors. "auto" = neutral mesh defaults.</div>
       <label class="chk"><input type="checkbox" id="normalize" checked> Normalize size &amp; drop to ground</label>
     </div>
 
     <label>Sensor preset</label>
-    <select id="preset">__PRESETS__</select>
+    <select id="preset"></select>
 
     <div class="row">
       <div><label>Width</label><input type="number" id="width" value="480" min="64" max="800"></div>
@@ -409,6 +441,45 @@ PAGE = r"""<!DOCTYPE html>
 <script>
 const $ = id => document.getElementById(id);
 let scene = "demo";
+let engineLoaded = false;
+
+function applyMeta(m) {
+  engineLoaded = !!m.loaded;
+  $("engineName").textContent = m.engine || "none loaded";
+  // preset + material option lists
+  $("preset").innerHTML = m.presets.map(p =>
+    `<option value="${p}"${p==="full_diagnostic"?" selected":""}>${p}</option>`).join("");
+  $("material").innerHTML = m.materials.map(x => `<option value="${x}">${x}</option>`).join("");
+  // show/hide the manual engine loader
+  $("engineBox").style.display = engineLoaded ? "none" : "block";
+  if (!engineLoaded) {
+    const cands = (m.candidates||[]).map(c => `<div>• <code>${c}</code></div>`).join("");
+    $("engineHint").innerHTML = "No engine was found automatically. Enter the path to an engine <code>.py</code> on the server and load it." +
+      (cands ? "<br>Tried:<br>" + cands : "");
+  }
+  $("go").disabled = !engineLoaded;
+  $("go").textContent = engineLoaded ? "Run scan" : "Load an engine first";
+}
+
+async function loadMeta() {
+  try { applyMeta(await (await fetch("/meta")).json()); }
+  catch (e) { $("engineName").textContent = "(failed to reach server)"; }
+}
+
+async function loadEngine() {
+  const path = $("enginePath").value.trim();
+  if (!path) { $("engineErr").textContent = "Enter a path first."; return; }
+  $("engineErr").textContent = "";
+  $("loadEngine").disabled = true; $("loadEngine").textContent = "Loading…";
+  try {
+    const m = await (await fetch("/load_engine", {method:"POST",
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify({path})})).json();
+    if (m.ok === false) { $("engineErr").textContent = m.error || "failed to load"; }
+    else { applyMeta(m); }
+  } catch (e) { $("engineErr").textContent = String(e); }
+  $("loadEngine").disabled = false; $("loadEngine").textContent = "Load engine";
+}
+
 $("sceneSeg").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   scene = b.dataset.scene;
@@ -433,6 +504,7 @@ $("out").addEventListener("click", e => {
 $("zoom").addEventListener("click", () => $("zoom").close());
 
 async function run() {
+  if (!engineLoaded) { alert("Load an engine first."); return; }
   const req = {
     scene, preset: $("preset").value,
     width: $("width").value, height: $("height").value,
@@ -456,6 +528,9 @@ async function run() {
   $("go").disabled = false;
 }
 $("go").addEventListener("click", run);
+$("loadEngine").addEventListener("click", loadEngine);
+$("enginePath").addEventListener("keydown", e => { if (e.key === "Enter") loadEngine(); });
+loadMeta();
 
 function render_error(msg) {
   $("out").innerHTML = '<div class="card"><h3>Error</h3><div class="err"></div></div>';
@@ -545,23 +620,32 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _read_json(self):
+        n = int(self.headers.get("Content-Length", 0))
+        return json.loads(self.rfile.read(n).decode("utf-8")) if n else {}
+
     def do_GET(self):
         if self.path in ("/", "/index.html"):
             self._send(200, index_html(), "text/html; charset=utf-8")
+        elif self.path == "/meta":
+            self._send(200, json.dumps(engine_meta()))
         elif self.path == "/health":
-            self._send(200, json.dumps({"ok": True, "engine": os.path.basename(ENGINE_PATH)}))
+            self._send(200, json.dumps({"ok": ENG is not None,
+                                        "engine": os.path.basename(ENGINE_PATH) if ENGINE_PATH else None}))
         else:
             self._send(404, json.dumps({"ok": False, "error": "not found"}))
 
     def do_POST(self):
-        if self.path != "/scan":
-            self._send(404, json.dumps({"ok": False, "error": "not found"}))
-            return
         try:
-            n = int(self.headers.get("Content-Length", 0))
-            req = json.loads(self.rfile.read(n).decode("utf-8"))
-            result = run_scan(req)
-            self._send(200, json.dumps(result))
+            if self.path == "/scan":
+                self._send(200, json.dumps(run_scan(self._read_json())))
+            elif self.path == "/load_engine":
+                req = self._read_json()
+                set_engine(req.get("path", ""))
+                print(f"  engine loaded via UI: {ENGINE_PATH}")
+                self._send(200, json.dumps(engine_meta()))
+            else:
+                self._send(404, json.dumps({"ok": False, "error": "not found"}))
         except Exception as e:
             traceback.print_exc()
             self._send(200, json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}))
@@ -584,16 +668,21 @@ def main():
             if os.path.exists(cand):
                 engine_path = cand
                 break
-    if not engine_path or not os.path.exists(engine_path):
-        sys.exit("error: no engine found; pass --engine PATH")
-
-    ENGINE_PATH = os.path.abspath(engine_path)
-    ENG = load_engine(ENGINE_PATH)
 
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"LiDAR Studio → http://{args.host}:{args.port}")
-    print(f"  engine : {ENGINE_PATH}")
-    print(f"  presets: {', '.join(sorted(ENG.SENSOR_PRESETS.keys()))}")
+    if engine_path and os.path.exists(engine_path):
+        try:
+            set_engine(engine_path)
+            print(f"  engine : {ENGINE_PATH}")
+            print(f"  presets: {', '.join(sorted(ENG.SENSOR_PRESETS.keys()))}")
+        except Exception as e:
+            print(f"  engine : failed to load {engine_path!r}: {e}")
+            print("  → open the page and load an engine manually in the Engine box.")
+    else:
+        print("  engine : none found automatically.")
+        print("  → open the page and enter an engine .py path in the Engine box,")
+        print("    or restart with --engine PATH.")
     print("  Ctrl-C to stop.")
     try:
         srv.serve_forever()

@@ -316,6 +316,11 @@ Point it at a specific engine with `--engine`:
 python lidar_studio.py --engine lidar_lenses_wave_v070.py --port 8080
 ```
 
+If no engine is found automatically, the server still starts and the page shows
+an **Engine** box at the top of the panel — paste the path to an engine `.py`
+(on the machine running the server) and click **Load engine** to load it
+manually, no restart needed.
+
 ### Quick start
 
 1. **Python 3.8+** and the engine's libraries (the server itself is pure
