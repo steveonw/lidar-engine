@@ -353,6 +353,21 @@ A scan runs the real pipeline, so it takes a few seconds up to ~30s depending on
 resolution and rays/px. Start small (e.g. 240×160, 2 rays/px) to iterate fast,
 then turn it up. The server binds to `127.0.0.1` (local only) by default.
 
+### Heavy meshes, fast previews
+
+Two things keep large uploaded models usable:
+
+- **Simplify large meshes** (on by default): models above a triangle budget
+  (default 40,000) are decimated via vertex clustering before scanning. A
+  341K-triangle STL drops to ~40K in about two seconds.
+- **Fast preview** (on by default): the engine's auto-framing and burst stacking
+  are what dominate runtime — they turn a ~1s scan into ~90s on a heavy mesh.
+  Fast preview replaces auto-framing with a cheap framing search (a few low-res
+  candidate bursts) and uses a single burst. The built-in scenes render in well
+  under a second; the 341K-triangle model above goes from ~95s to ~23s at
+  240×160. Uncheck it for the engine's auto-framed, multi-burst high-quality
+  render (much slower, slightly cleaner).
+
 ### What it does
 
 - **Scenes:** the built-in cabin demo, the material target board, or your own

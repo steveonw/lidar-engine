@@ -294,6 +294,42 @@ def build_scene(req: dict):
     raise ValueError(f"unknown scene kind {kind!r}")
 
 
+def _fast_frame_camera(scene, preset, probe_w: int = 44, probe_h: int = 30):
+    """Cheap stand-in for the engine's (slow) auto-framer.
+
+    Fires a few low-res candidate bursts on a ring around the scene and picks
+    the tightest framing that still keeps a margin (highest coverage that stays
+    under a cap, so the object fills the frame without clipping). Returns
+    (position, target) as lists, or (None, None) to fall back to defaults.
+    """
+    try:
+        b = ENG.scene_bounds(scene)
+        c = np.asarray(b["center"], dtype=np.float64)
+        radius = float(np.linalg.norm(b["span"])) * 0.5
+        if radius <= 0:
+            return None, None
+        best = None          # (coverage, position) among un-clipped candidates
+        fallback = None      # farthest candidate, if everything looks clipped
+        for dk in (1.0, 1.3, 1.7, 2.2):
+            for el in (0.45, 0.9):
+                for az in (0.0, 1.5708, 3.1416, 4.7124):
+                    d = np.array([np.cos(az), el, np.sin(az)], dtype=np.float64)
+                    d /= np.linalg.norm(d)
+                    pos = c + d * radius * dk
+                    cam = ENG.make_camera_for_preset(
+                        scene, preset, width=probe_w, height=probe_h,
+                        position=pos.tolist(), target=c.tolist())
+                    cov = ENG.fire_burst(cam, scene, probe_w * probe_h, 0).coverage
+                    if fallback is None or dk > fallback[0]:
+                        fallback = (dk, pos)
+                    if cov <= 0.92 and (best is None or cov > best[0]):
+                        best = (cov, pos)
+        pos = (best[1] if best is not None else fallback[1])
+        return pos.tolist(), c.tolist()
+    except Exception:
+        return None, None  # any trouble → let the preset's default camera stand
+
+
 def _png_b64(path: str) -> str:
     with open(path, "rb") as f:
         return "data:image/png;base64," + base64.b64encode(f.read()).decode("ascii")
@@ -319,6 +355,23 @@ def run_scan(req: dict) -> dict:
         overrides["height"] = max(64, min(600, overrides["height"]))
     if "rays_per_pixel" in overrides:
         overrides["rays_per_pixel"] = max(1, min(16, overrides["rays_per_pixel"]))
+    # Fast preview: auto-framing (many candidate-camera casts) and burst stacking
+    # dominate runtime — on a decimated heavy mesh they turn a 0.6s scan into 95s.
+    # Skipping them keeps every channel, just unframed + single-burst (noisier).
+    fast = bool(req.get("fast", True))
+    if fast:
+        overrides["auto_frame"] = False
+        overrides["stack"] = 1
+        # The engine's auto-framing produces the good views but is the dominant
+        # cost (~90s on a heavy mesh). We replace it with a cheap framing search
+        # of our own — a handful of low-res candidate bursts — and hand the
+        # winning camera to the engine with auto_frame off. This matters for the
+        # built-in scenes too: compact_diagnostic frames them via auto_frame, so
+        # without a substitute camera the unframed default barely sees them.
+        pos, tgt = _fast_frame_camera(scene, preset)
+        if pos is not None:
+            overrides["position"] = pos
+            overrides["target"] = tgt
     try:
         seed = int(req.get("seed") or 42)  # empty field / missing → default
     except (TypeError, ValueError):
@@ -355,6 +408,7 @@ def run_scan(req: dict) -> dict:
             "depth_stats": {k: (round(v, 3) if isinstance(v, float) else v)
                             for k, v in (diag.get("depth_stats") or {}).items()},
             "total_runtime_seconds": diag.get("total_runtime_seconds"),
+            "fast": fast,
         },
         "classification_counts": diag.get("classification_counts") or {},
         "material_report": result.get("material_report") or [],
@@ -530,8 +584,10 @@ PAGE = r"""<!DOCTYPE html>
       <div><label>Seed</label><input type="number" id="seed" value="42"></div>
     </div>
 
+    <label class="chk"><input type="checkbox" id="fast" checked> Fast preview (no auto-frame, single burst)</label>
+
     <button id="go">Run scan</button>
-    <div class="hint">Higher resolution &amp; rays/px look better but take longer.</div>
+    <div class="hint">Fast preview is far quicker on heavy meshes. Uncheck for an auto-framed, multi-burst high-quality render (much slower).</div>
   </div>
 
   <div class="out" id="out">
@@ -627,6 +683,7 @@ async function run() {
     rays_per_pixel: $("rays").value, seed: $("seed").value,
     material: $("material").value, normalize: $("normalize").checked,
     simplify: $("simplify").checked, max_tris: $("maxTris").value,
+    fast: $("fast").checked,
   };
   if (scene === "upload") {
     const f = $("file").files[0];
@@ -693,6 +750,7 @@ function render(d) {
     const p05=ds.depth_p05??ds.p05_depth, p50=ds.depth_p50??ds.p50_depth, p95=ds.depth_p95??ds.p95_depth;
     h += `<div class="k">depth p05/p50/p95</div><div class="v">${p05} / ${p50} / ${p95}</div>`;
   }
+  h += `<div class="k">mode</div><div class="v">${s.fast ? "fast preview (single burst, unframed)" : "high quality (auto-framed, stacked)"}</div>`;
   h += `<div class="k">runtime</div><div class="v">${s.total_runtime_seconds}s</div>`;
   h += '</div></div>';
 
