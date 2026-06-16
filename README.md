@@ -1,433 +1,215 @@
 # LiDAR Lenses Wave Engine
 
-A compact, single-file synthetic LiDAR / wave-sensing probe engine written in Python with NumPy and PIL.
+A compact, single-file synthetic LiDAR / wave-sensing probe engine written in
+Python with NumPy and PIL — plus a browser studio that drives the real engine for
+inspecting and verifying 3D scenes.
 
-This repo contains the **v0.7.0 stable public experimental build** of the engine, plus Colab notebooks, spreadsheet test plans, and release-quality visual harnesses.
+**Version: `v0.8`** (working build). v0.8 keeps the v0.7.0 engine core and adds a
+within-frame adaptive sampler and a full browser front-end for scene inspection. The
+v0.7.0 Colab harnesses and test plans are retained.
 
 ## What it is
 
-LiDAR Lenses Wave is a lightweight synthetic scene-inspection engine. It takes a simple 3D scene made from primitives and produces diagnostic sensor-style views:
+LiDAR Lenses Wave takes a 3D scene — built-in primitives or an uploaded mesh — and
+produces diagnostic, sensor-style views: shaded render, depth and depth variance,
+optical / acoustic coherence and anti-coherence, acoustic / ultrasonic intensity, a
+polarization-like material proxy, material classification, and boundary-aware edge
+maps, assembled into contact sheets with CSV / JSON diagnostics.
 
-- shaded render
-- depth and depth variance
-- optical coherence / anti-coherence
-- acoustic and ultrasonic intensity
-- polarization-like material proxy
-- material classification
-- boundary-aware edge maps
-- material core / material filled views
-- contact sheets and CSV diagnostics
+Its practical job is **scene inspection and verification**: render a generated or
+hand-built 3D scene back through the engine to check whether the geometry came out
+the way you intended — scale, framing, holes, silhouette, solidity, placement — and
+iterate. The studio's *Check placement* and *Build point cloud* actions (below) are
+built for exactly this "did I place it right?" loop.
 
-The engine is useful for testing how generated 3D scenes behave under different synthetic sensing modes.
+### Honest scope
 
-## Current release
+This is an experimental synthetic-sensing engine, not a calibrated physics
+simulator, and two things are worth being clear about up front:
 
-**Version:** `v0.7.0`
+- **The "wave" channels are not independent sensors.** Depth, the coherence /
+  anti-coherence channels, acoustic / ultrasonic intensity, and the polarization
+  proxy are all transforms of one first-hit depth buffer plus per-material priors,
+  so they correlate heavily with one another. They are useful as visual cues and
+  inspection aids — not as separate physical measurements.
+- **It is static first-hit raycasting.** One viewpoint at a time, first surface hit,
+  no multipath, no motion, no true wave propagation. Transparency is statistical;
+  polarization is a scalar proxy, not full Stokes / Mueller.
 
-Main files:
+Said plainly: it is a strong multi-channel *visualizer and scene checker*, not a
+sensor-physics simulator.
 
-```text
+## What's new in v0.8
+
+- **Patched engine** (`lidar_lenses_wave_v080_alpha5_1_patched.py`) — the v0.7 fixes
+  plus a material-channel de-saturation fix.
+- **Scout-then-fill sampler** ("smart sampling") — an opt-in within-frame adaptive
+  sampler. It spends ~10% of the ray budget scouting to find where rays actually
+  return, then concentrates the rest around those confirmed hits, so more of the
+  subject is resolved for the same ray count. Exposed as
+  `run_sensor_preset(..., sampler="scout_fill")`. The win is largest when the
+  subject is small in frame (a thin model fills only a sliver, so a uniform scan
+  wastes most rays on empty space). It is **quality-per-budget, not a speed-up** — it
+  casts the same number of rays, and rays that hit geometry cost more to trace than
+  rays into empty space.
+- **Camera Studio** (`lidar_studio_camera.py`) — a single-file, standard-library web
+  front-end that drives the *real* engine in the browser via the same
+  `run_sensor_preset()` call the engine's own harnesses use. Three actions:
+  - **Run scan** — the full multimodal contact sheet, with the smart-sampling toggle.
+  - **Check placement** — three canonical views (front / side / top) plus, for
+    primitive scenes, a geometry sanity report: inventory by type, cross-type
+    interpenetrations, bounds, and an advisory floating count.
+  - **Build point cloud** — scans five canonical views, fuses the hits (auto-
+    registered: world coordinates + known camera poses, so fusion is just
+    concatenation, no alignment), and exports a self-contained interactive three.js
+    point-cloud HTML. The smart-sampling toggle controls its density.
+
+Full studio documentation, command-line flags, security flags, and HTTP endpoints
+are in **`README_lidar_studio_camera.md`**.
+
+## Files
+
+v0.8 working build:
+
+```
+lidar_lenses_wave_v080_alpha5_1_patched.py   engine (v0.7 core + de-sat fix + scout-fill sampler)
+lidar_studio_camera.py                        browser studio (scan / placement / point cloud)
+README_lidar_studio_camera.md                 studio documentation
+```
+
+v0.7.0 (retained — engine lineage, Colab harnesses, test plans, sample outputs):
+
+```
 lidar_lenses_wave_v070.py
 lidar_v070_test_harness.ipynb
 lidar_wave_test_plan_v070.xlsx
 v070_release_quality_480.py
 v070_release_quality_480_harness.ipynb
 release_quality_480_plan_v070.xlsx
-README_v070.md
 RELEASE_NOTES_v070.md
-```
-
-## Quick start
-
-### Option 1 — Colab standard test harness
-
-Upload these files to Google Colab:
-
-```text
-lidar_lenses_wave_v070.py
-lidar_v070_test_harness.ipynb
-lidar_wave_test_plan_v070.xlsx
-```
-
-Open `lidar_v070_test_harness.ipynb` and run all cells.
-
-The harness produces contact sheets, CSV reports, diagnostic JSON files, material reports, edge reports, and a downloadable output ZIP.
-
-### Option 2 — release-quality 480×320 visual check
-
-Upload:
-
-```text
-lidar_lenses_wave_v070.py
-v070_release_quality_480.py
-v070_release_quality_480_harness.ipynb
-release_quality_480_plan_v070.xlsx
-```
-
-Open `v070_release_quality_480_harness.ipynb` and run all cells.
-
-Default visual-check settings:
-
-```text
-width: 480
-height: 320
-rays_per_pixel: 8
-stack: 4
-edge_score_mode: geom_fused
-edge_fusion_mode: depth_grad_mul
+v070_smoke_*                                  sample contact sheet, masks, diagnostics
 ```
 
 ## Engine concept
 
 The engine separates scene inspection into layers:
 
-```text
-depth / depth_variance
-  geometry and range
-
-light_anti / sound_anti
-  raw wave-inspired structure signals
-
-edge_score_raw
-  raw anti-wave evidence
-
-edge_score_geom
-  anti-wave evidence filtered by geometry support
-
-geom_edge
-  boundary / skeleton / discontinuity layer
-
-material_core
-  material labels with boundary pixels ignored
-
-material_filled
-  material labels with conservative edge filling
+```
+depth / depth_variance     geometry and range
+light_anti / sound_anti    raw wave-inspired structure signals
+edge_score_raw             raw anti-wave evidence
+edge_score_geom            anti-wave evidence filtered by geometry support
+geom_edge                  boundary / silhouette / discontinuity layer
+material_core              material labels with boundary pixels ignored
+material_filled            material labels with conservative edge filling
 ```
 
-The important rule:
+The important rule: **`geom_edge` is not a material.** It marks boundaries,
+silhouettes, mixed-depth transitions, and strong optical / acoustic discontinuities.
+v0.8 keeps v0.7.0's default fused edge path (`edge_score_mode = geom_fused`,
+`edge_fusion_mode = depth_grad_mul`, `edge_anti_min = 0.08`); `raw_anti` remains
+available as a debug / control mode.
 
-```text
-geom_edge is not a material.
-```
+### Outputs
 
-It marks boundaries, silhouettes, mixed-depth transitions, and strong optical/acoustic discontinuities.
+Typical contact-sheet panels: `shaded`, `depth`, `light_anti`, `sound_anti`,
+`edge_score_raw`, `edge_score_geom`, `edge_confidence`, `geom_edge_overlay`,
+`classification`, `depth_variance`, `acoustic_intensity`, `ultrasonic_intensity`,
+`material_core`, `material_filled`.
 
-## Default edge behavior
+Typical Colab-harness reports: `sweep_metrics.csv`, `material_channel_report.csv`,
+`material_discrimination_summary.csv`, `material_presence_report.csv`,
+`material_core_agreement.csv`, `material_filled_agreement.csv`,
+`boundary_adjacency_report.csv`, `structure_density_report.csv`,
+`edge_threshold_diagnostics_summary.csv`, `determinism_report.csv`,
+`edge_case_report.csv`.
 
-v0.7.0 uses the cleaner fused edge path by default:
+Built-in scenes: `demo`, `material_targets`, `occluder_gate`. Common presets:
+`compact_diagnostic`, `indoor_structure`, `outdoor_occlusion`, `material_scan`,
+`edge_debug`, `full_diagnostic`.
 
-```text
-edge_score_mode = geom_fused
-edge_fusion_mode = depth_grad_mul
-edge_anti_min = 0.08
-```
+## Quick start
 
-`raw_anti` is still available as a debug/control mode.
-
-## Outputs
-
-Typical contact-sheet panels include:
-
-```text
-shaded
-depth
-light_anti
-sound_anti
-edge_score_raw
-edge_score_geom
-edge_confidence
-geom_edge_overlay
-classification
-depth_variance
-acoustic_intensity
-ultrasonic_intensity
-material_core
-material_filled
-```
-
-Typical reports include:
-
-```text
-sweep_metrics.csv
-material_channel_report.csv
-material_discrimination_summary.csv
-material_presence_report.csv
-material_core_agreement.csv
-material_filled_agreement.csv
-boundary_adjacency_report.csv
-structure_density_report.csv
-edge_threshold_diagnostics_summary.csv
-determinism_report.csv
-edge_case_report.csv
-```
-
-## Included scenes and presets
-
-Common scenes:
-
-```text
-demo
-material_targets
-occluder_gate
-```
-
-Common presets:
-
-```text
-compact_diagnostic
-indoor_structure
-outdoor_occlusion
-material_scan
-edge_debug
-full_diagnostic
-```
-
-## Requirements
-
-The engine is intentionally lightweight.
-
-Core dependencies:
-
-```text
-numpy
-Pillow
-matplotlib
-pandas
-openpyxl
-```
-
-For Colab, the notebooks install or use the required packages.
-
-## Run locally
-
-Example:
+### The studio (recommended for v0.8)
 
 ```bash
-python lidar_lenses_wave_v070.py --preset=indoor_structure
-```
-
-Release-quality visual harness:
-
-```bash
-python v070_release_quality_480.py \
-  --engine lidar_lenses_wave_v070.py \
-  --plan release_quality_480_plan_v070.xlsx \
-  --outdir v070_release_quality_480_outputs
-```
-
-## Tier 2 Browser Demo
-
-`lidar_tier2_demo.html` is a self-contained interactive browser demo that illustrates the core ideas of the engine in a playable, zero-install format. Open it by double-clicking the file — no Python, no npm, no build step required. It loads PlayCanvas from a CDN for 3D rendering and everything else is plain JavaScript.
-
-The demo is not a port of the full engine. It is a lightweight Tier 2 showcase that gives people an immediate mental model of what the engine is doing before they look at the Python code.
-
-### What the browser demo does
-
-The demo runs a custom analytic JavaScript raycaster against a simple indoor 3D scene built from boxes and spheres. It fires rays from the current camera position, intersects them against scene geometry, and builds a point cloud from the hits. Each scan takes 20–35 ms in the browser.
-
-**7 render modes:**
-
-| Mode | What it shows |
-|---|---|
-| Normal | Dark 3D scene, no scan overlay |
-| Depth | Point cloud colored near→far (white→dark blue) |
-| Latest Scan | Newest scan colored by material label |
-| Memory Cloud | Last 4 scans overlaid, newest brightest |
-| Hybrid | 3D scene + accumulated memory cloud together |
-| Beam Evidence | Front returns red/orange, back returns cyan (gate/split), edges yellow-orange, solid green |
-| Mat/Edge Debug | Material colors, brightened at depth/material discontinuities |
-
-**5 lens modes:** Pinhole (60°), Wide (90°), Telephoto (30°), Orthographic, Fisheye
-
-**9 camera grid presets:** A1–C3, all looking at scene center from different angles and heights
-
-**Scan memory:** Keeps the last 4 scans. Memory Cloud shows them all with age-based fading, matching the Python engine's stacked-burst averaging concept.
-
-**Mini contact sheet:** After each scan a 4-panel pixel thumbnail appears in the HUD — Depth / Beam / Mat / Edge — directly mirroring the Python engine's diagnostic contact sheet format.
-
-**Live stats panel** uses the same structure as the Python engine's `depth_stats` output:
-
-```text
-coverage  78.4% · sky 1823
-depth p05 2.1 · p50 6.8 · p95 14.2
-span 12.1 m
-edges 412 · splits 38 · occl 38
-```
-
-### Python engine → browser demo mapping
-
-| Python engine channel | Browser demo equivalent |
-|---|---|
-| `depth` / `depth_variance` | Depth mode point color + p05/p50/p95 stats |
-| `beam_front` / `beam_back` evidence | Front return (red) + back return (cyan) in Beam Evidence mode |
-| `beam_split_score` | Split/occluder highlight on the partial gate object |
-| `edge_score_geom` | 4-neighbor depth/material discontinuity → edge brightness |
-| `classification` / `material_core` | Material debug colors per primitive label |
-| `sky` class (ray misses) | Counted as sky in coverage stats |
-| `partial_occluder` class | Gate primitive marked `partial:true`, detected via second hit |
-| Contact sheet output | Mini 4-panel contact sheet in the HUD after each scan |
-
-The browser demo uses known primitive labels rather than learned or inferred classification. The Python engine performs the full multimodal pipeline including wave coherence, acoustic/ultrasonic channels, polarization proxy, carrier ensemble de-striping, adaptive edge fusion, and auto-framing. The demo approximates the user-facing output layers only.
-
-### Running the demo
-
-Download `lidar_tier2_demo.html` and open it in any modern browser with internet access (needed for the PlayCanvas CDN). No other files are required.
-
-Controls:
-
-```text
-WASD / arrow keys   move camera
-mouse drag          look
-Space or Scan btn   fire a scan
-R                   reset scan memory
-P                   save screenshot (composites 3D scene + scan overlay)
-```
-
-
-
-This is an experimental synthetic sensing engine, not a calibrated physics simulator.
-
-Known limits:
-
-- first-hit raycasting
-- no full multipath simulation
-- transparency is statistical
-- acoustic / ultrasonic channels are heuristic material-response channels
-- polarization is a scalar proxy, not full Stokes/Mueller polarization
-- material classification works best through `material_core`, not raw classification alone
-
-## LiDAR Studio — drive the real engine from a browser
-
-`lidar_studio.py` is a single-file web front-end that runs the **actual Python
-engine** (not the Tier-2 JS approximation). It lets you pick a built-in scene or
-**upload your own 3D model**, choose a sensor preset, and see the engine's real
-diagnostic contact sheet, classification, and material-channel reports inline.
-
-```bash
-python lidar_studio.py
+pip install numpy Pillow          # core; add matplotlib pandas openpyxl for the Colab harnesses
+python lidar_studio_camera.py --engine lidar_lenses_wave_v080_alpha5_1_patched.py
 # then open http://localhost:8080
 ```
 
-By default it loads the newest engine it can find
-(`lidar_lenses_wave_v080_alpha5_1.py`, falling back to `lidar_lenses_wave_v070.py`).
-Point it at a specific engine with `--engine`:
+Pick a scene (cabin demo, material board, or upload a `.stl` / `.obj`), choose a
+preset, and **Run scan** — or **Check placement** / **Build point cloud**. The
+**Smart sampling** checkbox concentrates rays on the subject and drives both the scan
+and the point cloud. The server binds to `127.0.0.1` (local only) by default; see the
+studio README for remote-bind and engine-loading security flags.
+
+### The engine directly / Colab
 
 ```bash
-python lidar_studio.py --engine lidar_lenses_wave_v070.py --port 8080
+python lidar_lenses_wave_v080_alpha5_1_patched.py --preset=indoor_structure
 ```
 
-You can also load the engine from the page itself — just like uploading a model.
-At the top of the panel the **Engine** control lets you either **upload an engine
-`.py` file** from your browser or **load one by path** on the server, and switch
-engines at any time via the **change** link (no restart needed). If no engine is
-found automatically the loader opens on its own and scans stay disabled until you
-pick one.
+Or use the retained v0.7.0 Colab harnesses — upload the engine, the matching
+`*_test_harness.ipynb`, and the `*_plan_*.xlsx`, then run all cells for full contact
+sheets, CSV / JSON diagnostics, and a downloadable output ZIP.
 
-### Quick start
+## Requirements
 
-1. **Python 3.8+** and the engine's libraries (the server itself is pure
-   standard library — no web framework):
+Core: **Python 3.8+**, `numpy`, `Pillow`. The Colab harnesses also use `matplotlib`,
+`pandas`, `openpyxl`. The studio adds nothing — server and page are pure standard
+library; the point-cloud viewer pulls three.js from a CDN in the browser.
 
-   ```bash
-   pip install numpy Pillow matplotlib pandas openpyxl
-   ```
+## Known limitations
 
-   A scan only strictly needs `numpy` and `Pillow`, but the full set matches
-   what the engine expects.
-
-2. **Run it** from the repo root, then open the printed URL:
-
-   ```bash
-   python lidar_studio.py
-   # → http://localhost:8080
-   ```
-
-   Both engine files already ship in this repo, so there is nothing else to
-   download. Use `--port 8090` if `8080` is busy.
-
-3. **Use it** in the browser: pick a scene (cabin demo, material board, or
-   **Upload model**); for an upload, drop in a `.stl` / `.obj`, optionally tag a
-   material, choose a preset, and press **Run scan**.
-
-A scan runs the real pipeline, so it takes a few seconds up to ~30s depending on
-resolution and rays/px. Start small (e.g. 240×160, 2 rays/px) to iterate fast,
-then turn it up. The server binds to `127.0.0.1` (local only) by default.
-
-### Heavy meshes, fast previews
-
-Two things keep large uploaded models usable:
-
-- **Simplify large meshes** (on by default): models above a triangle budget
-  (default 40,000) are decimated via vertex clustering before scanning. A
-  341K-triangle STL drops to ~40K in about two seconds.
-- **Fast preview** (on by default): the engine's auto-framing and burst stacking
-  are what dominate runtime — they turn a ~1s scan into ~90s on a heavy mesh.
-  Fast preview replaces auto-framing with a cheap framing search (a few low-res
-  candidate bursts) and uses a single burst. The built-in scenes render in well
-  under a second; the 341K-triangle model above goes from ~95s to ~23s at
-  240×160. Uncheck it for the engine's auto-framed, multi-burst high-quality
-  render (much slower, slightly cleaner).
-
-### What it does
-
-- **Scenes:** the built-in cabin demo, the material target board, or your own
-  uploaded model.
-- **Model upload:** `.stl` (binary or ASCII, via the engine's native loader) and
-  `.obj` (triangulated Wavefront, via a small built-in parser). Uploaded models
-  are optionally recentered and scaled to sit on the ground so the presets frame
-  them well.
-- **Material assumption:** tag an uploaded mesh as `metal`, `glass`, `wood`,
-  `concrete`, etc. to drive the acoustic / ultrasonic / polarization priors —
-  the same `MATERIAL_PRIORS` the test scenes use — or leave it on `auto`.
-- **Presets:** every preset the engine exposes (`full_diagnostic`,
-  `beam_return_debug`, `indoor_structure`, `material_scan`, …).
-- **Output:** the full contact sheet, the geom-edge overlay, `material_core` /
-  `material_filled` views, depth/coverage stats, the classification breakdown,
-  and the per-material channel report — all rendered by the real pipeline via
-  `run_sensor_preset()`.
-
-The engine already raycasts triangle meshes (BVH + Möller-Trumbore) and `Scene`
-already holds a `meshes` list; the only gap was that the primitive-oriented
-diagnostics (camera auto-framing in particular) didn't know about meshes.
-`lidar_studio.py` closes that gap with a small **runtime compatibility shim** —
-it makes `Scene` iterable and teaches `scene_bounds()` about mesh AABBs on the
-loaded module, leaving the engine source files untouched. So the same shim works
-against any engine version you point it at, and a `Scene(meshes=[...])` flows
-through the same diagnostics as the primitive demos. No third-party web
-dependencies — just the standard library plus whatever the engine already needs.
+- First-hit raycasting; no full multipath simulation; one static viewpoint per scan.
+- The wave channels correlate strongly (shared depth buffer + material priors) — they
+  are inspection aids, not independent sensors.
+- Transparency is statistical; polarization is a scalar proxy, not full
+  Stokes / Mueller.
+- Material classification works best through `material_core`, not raw classification
+  alone.
+- **Smart sampling** is quality-per-budget, not a speed-up, and needs a sampler-aware
+  engine (the studio detects this and falls back to uniform otherwise).
+- **Placement floating-detection is advisory** — it over-reports on plane / billboard
+  geometry, so trust the canonical views and the inventory / interpenetration report.
+  Uploaded meshes get the views only, not the per-object report.
+- The point cloud embeds its points inline in the HTML, so denser clouds mean bigger
+  files (~190 KB at ~5k points, roughly 0.5–1 MB at ~14k).
 
 ## Roadmap
 
-### v0.7.x
+**v0.8 (done):** material-channel de-saturation fix; within-frame scout-then-fill
+sampler; the Camera Studio with scan, placement check, and multi-view point-cloud
+export.
 
-Cleanup, docs, examples, and test harness stability.
+**Explored, not merged:** a rolling / cross-frame ray-memory fork for steerable or
+moving sensors (world-hit-voxel keying plus a frontier / information-gain gate). It
+only pays off on dynamic scenes and stays a separate research direction rather than
+part of the static-inspection engine.
 
-### v0.8 idea: sensor morphology / sensor zoo
-
-Possible future work:
-
-```text
-weighted rays
-ray timing
-beam profiles
-foveated eyes
-compound eyes
-slit pupils
-sonar cones
-rolling scans
-custom ray-release schedules
-```
+**v0.8+ ideas — sensor morphology / "sensor zoo" (aspirational, not built):** weighted
+rays, ray timing, beam profiles, foveated eyes, compound eyes, slit pupils, sonar
+cones, rolling scans, custom ray-release schedules.
 
 ## License
+
 Copyright (c) <2026> Steveon Walker
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to the following
+conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies
+or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
-
-
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
